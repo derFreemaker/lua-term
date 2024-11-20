@@ -33,54 +33,73 @@ local ansicolors = {}
 ---@operator call(string): string
 local color = {}
 
-local colormt = {}
-
-function colormt:__tostring()
-    return self.value
+---@private
+function color:__tostring()
+    return schar(27) .. '[' .. tostring(self.value) .. 'm'
 end
 
-function colormt:__concat(other)
+---@private
+function color:__concat(other)
     return tostring(self) .. tostring(other)
 end
 
-function colormt:__call(s)
+---@private
+function color:__call(s)
     return self .. s .. ansicolors.reset
 end
 
+---@param value string
 ---@return ansicolors.color
 local function makecolor(value)
-    return setmetatable({ value = schar(27) .. '[' .. tostring(value) .. 'm' }, colormt)
+    return setmetatable({ value = value }, color)
 end
 
 -- attributes
-ansicolors.reset = makecolor(0)
-ansicolors.clear = makecolor(0)
-ansicolors.default = makecolor(0)
-ansicolors.bright = makecolor(1)
-ansicolors.dim = makecolor(2)
-ansicolors.underscore = makecolor(4)
-ansicolors.blink = makecolor(5)
-ansicolors.reverse = makecolor(7)
-ansicolors.hidden = makecolor(8)
+ansicolors.reset = makecolor("0")
+ansicolors.clear = makecolor("0")
+ansicolors.default = makecolor("0")
+ansicolors.bright = makecolor("1")
+ansicolors.dim = makecolor("2")
+ansicolors.italic = makecolor("3")
+ansicolors.underscore = makecolor("4")
+ansicolors.blink = makecolor("5")
+ansicolors.inverted = makecolor("7")
+ansicolors.hidden = makecolor("8")
 
 -- foreground
-ansicolors.black = makecolor(30)
-ansicolors.red = makecolor(31)
-ansicolors.green = makecolor(32)
-ansicolors.yellow = makecolor(33)
-ansicolors.blue = makecolor(34)
-ansicolors.magenta = makecolor(35)
-ansicolors.cyan = makecolor(36)
-ansicolors.white = makecolor(37)
+ansicolors.black = makecolor("30")
+ansicolors.red = makecolor("31")
+ansicolors.green = makecolor("32")
+ansicolors.yellow = makecolor("33")
+ansicolors.blue = makecolor("34")
+ansicolors.magenta = makecolor("35")
+ansicolors.cyan = makecolor("36")
+ansicolors.white = makecolor("37")
+---@param color_code integer
+ansicolors.foreground_extended = function(color_code)
+    if color_code < 0 or color_code > 255 then
+        return ansicolors.clear
+    end
+
+    return makecolor("38;5;" .. tostring(color_code))
+end
 
 -- background
-ansicolors.onblack = makecolor(40)
-ansicolors.onred = makecolor(41)
-ansicolors.ongreen = makecolor(42)
-ansicolors.onyellow = makecolor(43)
-ansicolors.onblue = makecolor(44)
-ansicolors.onmagenta = makecolor(45)
-ansicolors.oncyan = makecolor(46)
-ansicolors.onwhite = makecolor(47)
+ansicolors.onblack = makecolor("40")
+ansicolors.onred = makecolor("41")
+ansicolors.ongreen = makecolor("42")
+ansicolors.onyellow = makecolor("43")
+ansicolors.onblue = makecolor("44")
+ansicolors.onmagenta = makecolor("45")
+ansicolors.oncyan = makecolor("46")
+ansicolors.onwhite = makecolor("47")
+---@param color_code integer
+ansicolors.background_extended = function(color_code)
+    if color_code < 0 or color_code > 255 then
+        return ansicolors.clear
+    end
+
+    return makecolor("48;5;" .. tostring(color_code))
+end
 
 return ansicolors
