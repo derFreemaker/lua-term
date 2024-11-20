@@ -772,9 +772,11 @@ __fileFuncs__["src.terminal"] = function()
 	            table_insert(items, tostring(value))
 	        end
 	        local str = table_concat(items)
-	        return stdout_terminal:create_segment("<print>", function()
+	        local print_segment = stdout_terminal:create_segment("<print>", function()
 	            return str
 	        end)
+	        self:update()
+	        return print_segment
 	    end
 	end
 
