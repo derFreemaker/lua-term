@@ -971,6 +971,12 @@ __fileFuncs__["src.components"] = function()
 	    self.m_segment:changed()
 	end
 
+	---@param state_percent integer
+	function loading:changed_relativ(state_percent)
+	    self.state_percent = self.state_percent + state_percent
+	    self.m_segment:changed()
+	end
+
 	function loading:remove()
 	    self.m_segment:remove()
 	end
