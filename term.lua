@@ -1057,6 +1057,9 @@ end
 __fileFuncs__["__main__"] = function()
 	---@class lua-term
 	---@field colors ansicolors
+	---
+	---@field terminal lua-term.terminal
+	---@field components lua-term.components
 	local term = {
 	    colors = __loadFile__("third-party.ansicolors"),
 
