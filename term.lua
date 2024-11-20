@@ -1069,9 +1069,11 @@ __fileFuncs__["src.components"] = function()
 	        state_str = "-"
 	    end
 
-	    -- render again next update
-	    self.m_segment:changed()
 	    return string_rep(" ", self.config.space) .. self.config.color_bg(self.config.color_fg(state_str))
+	end
+
+	function throbber:rotate()
+	    self.m_segment:changed(true)
 	end
 
 	---@param update boolean | nil
