@@ -74,8 +74,13 @@ function segment_class:remove()
     self.m_terminal:remove_segment(self)
 end
 
-function segment_class:changed()
+---@param update boolean | nil
+function segment_class:changed(update)
     self.p_requested_update = true
+
+    if update then
+        self.m_terminal:update()
+    end
 end
 
 ----------------
@@ -243,7 +248,7 @@ function terminal:update()
             content)
     end
 
-    if #self.m_segments > 0 then 
+    if #self.m_segments > 0 then
         self:jump_to_line(self.m_segments[#self.m_segments].p_line + 1)
     else
         self:jump_to_line(1)

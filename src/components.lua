@@ -68,18 +68,20 @@ function loading:render()
 end
 
 ---@param state_percent integer | nil
-function loading:changed(state_percent)
+---@param update boolean | nil
+function loading:changed(state_percent, update)
     if state_percent then
         self.state_percent = state_percent
     end
 
-    self.m_segment:changed()
+    self.m_segment:changed(update or true)
 end
 
 ---@param state_percent integer
-function loading:changed_relativ(state_percent)
+---@param update boolean | nil
+function loading:changed_relativ(state_percent, update)
     self.state_percent = self.state_percent + state_percent
-    self.m_segment:changed()
+    self.m_segment:changed(update or true)
 end
 
 function loading:remove()
