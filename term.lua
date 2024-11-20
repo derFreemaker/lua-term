@@ -766,22 +766,12 @@ __fileFuncs__["src.terminal"] = function()
 	    if self.m_org_print then
 	        return
 	    end
-
 	    self.m_org_print = print
 
 	    ---@param ... any
 	    ---@return lua-term.segment
 	    function print(...)
-	        local items = {}
-	        for _, value in ipairs({ ... }) do
-	            table_insert(items, tostring(value))
-	        end
-	        local str = table_concat(items)
-	        local print_segment = stdout_terminal:create_segment("<print>", function()
-	            return str
-	        end)
-	        self:update()
-	        return print_segment
+	        return self:print(...)
 	    end
 	end
 
@@ -792,6 +782,21 @@ __fileFuncs__["src.terminal"] = function()
 
 	    print = self.m_org_print
 	    self.m_org_print = nil
+	end
+
+	---@param ... any
+	---@return lua-term.segment
+	function terminal:print(...)
+	    local items = {}
+	    for _, value in ipairs({ ... }) do
+	        table_insert(items, tostring(value))
+	    end
+	    local str = table_concat(items)
+	    local print_segment = stdout_terminal:create_segment("<print>", function()
+	        return str
+	    end)
+	    self:update()
+	    return print_segment
 	end
 
 	---@param id string
