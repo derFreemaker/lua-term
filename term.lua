@@ -705,8 +705,15 @@ __fileFuncs__["src.terminal"] = function()
 	    self.p_lines_count = #self.p_lines
 	end
 
-	function segment_class:remove()
+	---@param update boolean | nil
+	function segment_class:remove(update)
+	    update = update or true
+
 	    self.m_terminal:remove_segment(self)
+
+	    if update then
+	        self.m_terminal:update()
+	    end
 	end
 
 	---@param update boolean | nil
@@ -989,8 +996,9 @@ __fileFuncs__["src.components"] = function()
 	    self.m_segment:changed(update or true)
 	end
 
-	function loading:remove()
-	    self.m_segment:remove()
+	---@param update boolean | nil
+	function loading:remove(update)
+	    self.m_segment:remove(update)
 	end
 
 	----------------
@@ -1066,8 +1074,9 @@ __fileFuncs__["src.components"] = function()
 	    return string_rep(" ", self.config.space) .. self.config.color_bg(self.config.color_fg(state_str))
 	end
 
-	function throbber:remove()
-	    self.m_segment:remove()
+	---@param update boolean | nil
+	function throbber:remove(update)
+	    self.m_segment:remove(update)
 	end
 
 	return components

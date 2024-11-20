@@ -84,8 +84,9 @@ function loading:changed_relativ(state_percent, update)
     self.m_segment:changed(update or true)
 end
 
-function loading:remove()
-    self.m_segment:remove()
+---@param update boolean | nil
+function loading:remove(update)
+    self.m_segment:remove(update)
 end
 
 ----------------
@@ -161,8 +162,9 @@ function throbber:render()
     return string_rep(" ", self.config.space) .. self.config.color_bg(self.config.color_fg(state_str))
 end
 
-function throbber:remove()
-    self.m_segment:remove()
+---@param update boolean | nil
+function throbber:remove(update)
+    self.m_segment:remove(update)
 end
 
 return components

@@ -70,8 +70,15 @@ function segment_class:pre_render()
     self.p_lines_count = #self.p_lines
 end
 
-function segment_class:remove()
+---@param update boolean | nil
+function segment_class:remove(update)
+    update = update or true
+
     self.m_terminal:remove_segment(self)
+
+    if update then
+        self.m_terminal:update()
+    end
 end
 
 ---@param update boolean | nil
