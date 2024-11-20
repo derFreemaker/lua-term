@@ -709,8 +709,13 @@ __fileFuncs__["src.terminal"] = function()
 	    self.m_terminal:remove_segment(self)
 	end
 
-	function segment_class:changed()
+	---@param update boolean | nil
+	function segment_class:changed(update)
 	    self.p_requested_update = true
+
+	    if update then
+	        self.m_terminal:update()
+	    end
 	end
 
 	----------------
@@ -878,7 +883,7 @@ __fileFuncs__["src.terminal"] = function()
 	            content)
 	    end
 
-	    if #self.m_segments > 0 then 
+	    if #self.m_segments > 0 then
 	        self:jump_to_line(self.m_segments[#self.m_segments].p_line + 1)
 	    else
 	        self:jump_to_line(1)
@@ -963,18 +968,20 @@ __fileFuncs__["src.components"] = function()
 	end
 
 	---@param state_percent integer | nil
-	function loading:changed(state_percent)
+	---@param update boolean | nil
+	function loading:changed(state_percent, update)
 	    if state_percent then
 	        self.state_percent = state_percent
 	    end
 
-	    self.m_segment:changed()
+	    self.m_segment:changed(update or true)
 	end
 
 	---@param state_percent integer
-	function loading:changed_relativ(state_percent)
+	---@param update boolean | nil
+	function loading:changed_relativ(state_percent, update)
 	    self.state_percent = self.state_percent + state_percent
-	    self.m_segment:changed()
+	    self.m_segment:changed(update or true)
 	end
 
 	function loading:remove()
