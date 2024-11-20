@@ -13,9 +13,8 @@ local terminal = term.terminal.stdout()
 
 terminal:overrite_print()
 
-local throb = term.components.throbber.new("test throbber", terminal, {
-    space = 2
-})
+local throb = term.components.throbber.new("test throbber", terminal)
+throb:rotate_on_every_update()
 local test = term.components.loading.new("test loading", terminal)
 
 local test_print = print("test print")

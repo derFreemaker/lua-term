@@ -1022,6 +1022,8 @@ __fileFuncs__["src.components"] = function()
 	---
 	---@field config lua-term.components.throbber.config
 	---
+	---@field private m_rotate_on_every_update boolean
+	---
 	---@field private m_state integer
 	---
 	---@field private m_segment lua-term.segment
@@ -1042,6 +1044,8 @@ __fileFuncs__["src.components"] = function()
 	    local instance = setmetatable({
 	        id = id,
 	        m_state = 0,
+
+	        m_rotate_on_every_update = false,
 
 	        config = config
 	    }, { __index = throbber })
@@ -1069,11 +1073,19 @@ __fileFuncs__["src.components"] = function()
 	        state_str = "-"
 	    end
 
+	    if self.m_rotate_on_every_update then
+	        self.m_segment:changed()
+	    end
 	    return string_rep(" ", self.config.space) .. self.config.color_bg(self.config.color_fg(state_str))
 	end
 
 	function throbber:rotate()
 	    self.m_segment:changed(true)
+	end
+
+	---@param value boolean | nil
+	function throbber:rotate_on_every_update(value)
+	    self.m_rotate_on_every_update = value or true
 	end
 
 	---@param update boolean | nil
