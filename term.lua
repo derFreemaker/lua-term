@@ -798,7 +798,7 @@ __fileFuncs__["src.terminal"] = function()
 	    for _, value in ipairs({ ... }) do
 	        table_insert(items, tostring(value))
 	    end
-	    local str = table_concat(items)
+	    local str = table_concat(items, "\t")
 	    local print_segment = stdout_terminal:create_segment("<print>", function()
 	        return str
 	    end)
