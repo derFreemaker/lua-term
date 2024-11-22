@@ -15,8 +15,6 @@ local components = {}
 ---
 ---@field color_bg ansicolors.color | nil (default: black)
 ---@field color_fg ansicolors.color | nil (default: magenta)
----
----@field pos integer | nil (default: at the end)
 
 ---@class lua-term.components.loading.config
 ---@field length integer
@@ -35,10 +33,10 @@ local loading = {}
 components.loading = loading
 
 ---@param id string
----@param terminal lua-term.terminal
+---@param parent lua-term.parent
 ---@param config lua-term.components.loading.config.create | nil
 ---@return lua-term.components.loading
-function loading.new(id, terminal, config)
+function loading.new(id, parent, config)
     config = config or {}
     config.color_bg = config.color_bg or colors.onblack
     config.color_fg = config.color_fg or colors.onmagenta
@@ -51,11 +49,10 @@ function loading.new(id, terminal, config)
 
         config = config,
     }, { __index = loading })
-    instance.m_segment = terminal:create_segment(id, function()
+    instance.m_segment = parent:create_segment(id, function()
         return instance:render()
-    end, config.pos or nil)
+    end)
 
-    config.pos = nil
     config.state_percent = nil
 
     return instance
@@ -119,10 +116,10 @@ local throbber = {}
 components.throbber = throbber
 
 ---@param id string
----@param terminal lua-term.terminal
+---@param parent lua-term.parent
 ---@param config lua-term.components.throbber.config.create | nil
 ---@return lua-term.components.throbber
-function throbber.new(id, terminal, config)
+function throbber.new(id, parent, config)
     config = config or {}
     config.space = config.space or 2
     config.color_bg = config.color_bg or colors.reset
@@ -137,7 +134,7 @@ function throbber.new(id, terminal, config)
 
         config = config
     }, { __index = throbber })
-    instance.m_segment = terminal:create_segment(id, function()
+    instance.m_segment = parent:create_segment(id, function()
         return instance:render()
     end)
 

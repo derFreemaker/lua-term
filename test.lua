@@ -11,37 +11,35 @@ local term = require("src.init")
 
 local terminal = term.terminal.stdout()
 
-terminal:overrite_print()
+local body = terminal:create_group("body")
+local footer = terminal:create_group("footer")
 
-local throb = term.components.throbber.new("test throbber", terminal)
+local test = term.components.loading.new("test loading", footer)
+local throb = term.components.throbber.new("test throbber", footer)
 throb:rotate_on_every_update()
-local test = term.components.loading.new("test loading", terminal)
 
-local test_print = print("test print")
+local test_print = terminal:print("test print")
 ---@cast test_print -nil
 
 terminal:update()
 
-for i = 1, 10 do
-    local test2 = term.components.loading.new("test loading 2", terminal, {
-        pos = 3,
+for i = 1, 6 do
+    local test2 = term.components.loading.new("test loading 2", body, {
         length = 30
     })
-    for j = 1, 101, 5 do
-        sleep(0.05)
-        test2:changed(j)
-        terminal:update()
+    for j = 1, 6 do
+        sleep(0.1)
+        test2:changed(100 / 6 * j, true)
     end
     test2:remove()
-    sleep(0.1)
 
-    test:changed(i * 10)
+    test:changed(100 / 6 * i, true)
+    sleep(0.2)
 end
-test:remove()
-throb:remove()
-test_print:remove()
+test_print:remove(false)
+footer:remove(false)
 
-terminal:restore_print()
+sleep(1)
 terminal:update()
 
 print("## END ##")

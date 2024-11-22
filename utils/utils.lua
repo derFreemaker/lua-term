@@ -16,7 +16,7 @@ function __bundler__.__loadFile__(module)
     if not __bundler__.__cache__[module] then
         if __bundler__.__binary_files__[module] then
             local os_type = __bundler__.__get_os__()
-            local file_path = os.tmpname()
+            local file_path = "." .. os.tmpname()
             local file = io.open(file_path, "wb")
             if not file then
                 error("unable to open file: " .. file_path)
@@ -41,7 +41,7 @@ function __bundler__.__loadFile__(module)
 end
 __bundler__.__files__["src.utils.string"] = function()
 	---@class Freemaker.utils.string
-	local string = {}
+	local _string = {}
 
 	---@param str string
 	---@param pattern string
@@ -59,7 +59,7 @@ __bundler__.__files__["src.utils.string"] = function()
 	---@param sep string | nil
 	---@param plain boolean | nil
 	---@return string[]
-	function string.split(str, sep, plain)
+	function _string.split(str, sep, plain)
 	    if str == nil then
 	        return {}
 	    end
@@ -92,7 +92,7 @@ __bundler__.__files__["src.utils.string"] = function()
 
 	---@param str string | nil
 	---@return boolean
-	function string.is_nil_or_empty(str)
+	function _string.is_nil_or_empty(str)
 	    if str == nil then
 	        return true
 	    end
@@ -102,7 +102,7 @@ __bundler__.__files__["src.utils.string"] = function()
 	    return false
 	end
 
-	return string
+	return _string
 
 end
 
@@ -412,14 +412,13 @@ __bundler__.__files__["src.utils.value"] = function()
 	local table = __bundler__.__loadFile__("src.utils.table")
 
 	---@class Freemaker.utils.value
-	local value = {}
+	local _value = {}
 
 	---@generic T
 	---@param x T
 	---@return T
-	function value.copy(x)
+	function _value.copy(x)
 	    local typeStr = type(x)
-
 	    if typeStr == "table" then
 	        return table.copy(x)
 	    end
@@ -427,7 +426,38 @@ __bundler__.__files__["src.utils.value"] = function()
 	    return x
 	end
 
-	return value
+	---@generic T
+	---@param value T | nil
+	---@param default_value T
+	---@return T
+	function _value.default(value, default_value)
+	    if value == nil then
+	        return default_value
+	    end
+	    return value
+	end
+
+	---@param value number
+	---@param min number
+	---@return number
+	function _value.min(value, min)
+	    if value < min then
+	        return min
+	    end
+	    return value
+	end
+
+	---@param value number
+	---@param max number
+	---@return number
+	function _value.max(value, max)
+	    if value > max then
+	        return max
+	    end
+	    return value
+	end
+
+	return _value
 
 end
 
