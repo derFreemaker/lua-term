@@ -1329,8 +1329,9 @@ end
 
 __bundler__.__files__["src.components.init"] = function()
 	---@class lua-term.components
-	---@field text lua-term.components.text
+	---@field group lua-term.components.group
 	---
+	---@field text lua-term.components.text
 	---@field loading lua-term.components.loading
 	---@field throbber lua-term.components.throbber
 	local components = {
