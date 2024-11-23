@@ -1,14 +1,79 @@
 ---@diagnostic disable
 
-	local __fileFuncs__ = {}
-	local __cache__ = {}
-	local function __loadFile__(module)
-	    if not __cache__[module] then
-	        __cache__[module] = { __fileFuncs__[module]() }
+	local __bundler__ = {
+	    __files__ = {},
+	    __binary_files__ = {},
+	    __cache__ = {},
+	    __temp_files__ = {},
+	    __org_exit__ = os.exit
+	}
+	function __bundler__.__get_os__()
+	    if package.config:sub(1, 1) == '\\' then
+	        return "windows"
+	    else
+	        return "linux"
 	    end
-	    return table.unpack(__cache__[module])
 	end
-	__fileFuncs__["third-party.ansicolors"] = function()
+	function __bundler__.__loadFile__(module)
+	    if not __bundler__.__cache__[module] then
+	        if __bundler__.__binary_files__[module] then
+	        local tempDir = os.getenv("TEMP") or os.getenv("TMP")
+	            if not tempDir then
+	                tempDir = "/tmp"
+	            end
+	            local os_type = __bundler__.__get_os__()
+	            local file_path = tempDir .. os.tmpname()
+	            local file = io.open(file_path, "wb")
+	            if not file then
+	                error("unable to open file: " .. file_path)
+	            end
+	            local content
+	            if os_type == "windows" then
+	                content = __bundler__.__files__[module .. ".dll"]
+	            else
+	                content = __bundler__.__files__[module .. ".so"]
+	            end
+	            local content_len = content:len()
+	            for i = 2, content_len, 2 do
+	                local byte = tonumber(content:sub(i - 1, i), 16)
+	                file:write(string.char(byte))
+	            end
+	            -- for i = 1, #content do
+	                -- local byte = tonumber(content[i], 16)
+	                -- file:write(string.char(byte))
+	            -- end
+	            file:close()
+	            __bundler__.__cache__[module] = { package.loadlib(file_path, "luaopen_" .. module)() }
+	            table.insert(__bundler__.__temp_files__, file_path)
+	        else
+	            __bundler__.__cache__[module] = { __bundler__.__files__[module]() }
+	        end
+	    end
+	    return table.unpack(__bundler__.__cache__[module])
+	end
+	function __bundler__.__cleanup__()
+	    for _, file_path in ipairs(__bundler__.__temp_files__) do
+	        os.remove(file_path)
+	    end
+	end
+	---@diagnostic disable-next-line: duplicate-set-field
+	function os.exit(...)
+	    __bundler__.__cleanup__()
+	    __bundler__.__org_exit__(...)
+	end
+	function __bundler__.__main__()
+	    local loading_thread = coroutine.create(__bundler__.__loadFile__)
+	    local success, items = (function(success, ...) return success, {...} end)
+	        (coroutine.resume(loading_thread, "__main__"))
+	    if not success then
+	        print("error in bundle loading thread:\n"
+	            .. debug.traceback(loading_thread, items[1]))
+	    end
+	    coroutine.close(loading_thread)
+	    __bundler__.__cleanup__()
+	    return table.unpack(items)
+	end
+	__bundler__.__files__["third-party.ansicolors"] = function()
 	-- Copyright (c) 2009 Rob Hoelz <rob@hoelzro.net>
 	--
 	-- Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -117,7 +182,7 @@
 
 end
 
-__fileFuncs__["utils.utils"] = function()
+__bundler__.__files__["utils.utils"] = function()
 	---@diagnostic disable
 
 	local __bundler__ = {
@@ -136,7 +201,7 @@ __fileFuncs__["utils.utils"] = function()
 	    if not __bundler__.__cache__[module] then
 	        if __bundler__.__binary_files__[module] then
 	            local os_type = __bundler__.__get_os__()
-	            local file_path = os.tmpname()
+	            local file_path = "." .. os.tmpname()
 	            local file = io.open(file_path, "wb")
 	            if not file then
 	                error("unable to open file: " .. file_path)
@@ -161,7 +226,7 @@ __fileFuncs__["utils.utils"] = function()
 	end
 	__bundler__.__files__["src.utils.string"] = function()
 		---@class Freemaker.utils.string
-		local string = {}
+		local _string = {}
 
 		---@param str string
 		---@param pattern string
@@ -179,7 +244,7 @@ __fileFuncs__["utils.utils"] = function()
 		---@param sep string | nil
 		---@param plain boolean | nil
 		---@return string[]
-		function string.split(str, sep, plain)
+		function _string.split(str, sep, plain)
 		    if str == nil then
 		        return {}
 		    end
@@ -212,7 +277,7 @@ __fileFuncs__["utils.utils"] = function()
 
 		---@param str string | nil
 		---@return boolean
-		function string.is_nil_or_empty(str)
+		function _string.is_nil_or_empty(str)
 		    if str == nil then
 		        return true
 		    end
@@ -222,7 +287,7 @@ __fileFuncs__["utils.utils"] = function()
 		    return false
 		end
 
-		return string
+		return _string
 
 	end
 
@@ -532,14 +597,13 @@ __fileFuncs__["utils.utils"] = function()
 		local table = __bundler__.__loadFile__("src.utils.table")
 
 		---@class Freemaker.utils.value
-		local value = {}
+		local _value = {}
 
 		---@generic T
 		---@param x T
 		---@return T
-		function value.copy(x)
+		function _value.copy(x)
 		    local typeStr = type(x)
-
 		    if typeStr == "table" then
 		        return table.copy(x)
 		    end
@@ -547,7 +611,38 @@ __fileFuncs__["utils.utils"] = function()
 		    return x
 		end
 
-		return value
+		---@generic T
+		---@param value T | nil
+		---@param default_value T
+		---@return T
+		function _value.default(value, default_value)
+		    if value == nil then
+		        return default_value
+		    end
+		    return value
+		end
+
+		---@param value number
+		---@param min number
+		---@return number
+		function _value.min(value, min)
+		    if value < min then
+		        return min
+		    end
+		    return value
+		end
+
+		---@param value number
+		---@param max number
+		---@return number
+		function _value.max(value, max)
+		    if value > max then
+		        return max
+		    end
+		    return value
+		end
+
+		return _value
 
 	end
 
@@ -574,7 +669,7 @@ __fileFuncs__["utils.utils"] = function()
 
 end
 
-__fileFuncs__["src.maketermfunc"] = function()
+__bundler__.__files__["src.maketermfunc"] = function()
 	local sformat = string.format
 
 	return function(sequence_fmt)
@@ -586,8 +681,8 @@ __fileFuncs__["src.maketermfunc"] = function()
 
 end
 
-__fileFuncs__["src.cursor"] = function()
-	local make_term_func = __loadFile__("src.maketermfunc")
+__bundler__.__files__["src.cursor"] = function()
+	local make_term_func = __bundler__.__loadFile__("src.maketermfunc")
 
 	---@class lua-term.cursor
 	local cursor = {
@@ -613,8 +708,8 @@ __fileFuncs__["src.cursor"] = function()
 
 end
 
-__fileFuncs__["src.erase"] = function()
-	local make_term_func = __loadFile__("src.maketermfunc")
+__bundler__.__files__["src.erase"] = function()
+	local make_term_func = __bundler__.__loadFile__("src.maketermfunc")
 
 	---@class lua-term.erase
 	local erase = {}
@@ -632,11 +727,11 @@ __fileFuncs__["src.erase"] = function()
 
 end
 
-__fileFuncs__["src.terminal"] = function()
-	local utils = __loadFile__("utils.utils")
+__bundler__.__files__["src.terminal"] = function()
+	local utils = __bundler__.__loadFile__("utils.utils")
 
-	local cursor = __loadFile__("src.cursor")
-	local erase = __loadFile__("src.erase")
+	local cursor = __bundler__.__loadFile__("src.cursor")
+	local erase = __bundler__.__loadFile__("src.erase")
 
 	local pairs = pairs
 	local string_rep = string.rep
@@ -647,14 +742,38 @@ __fileFuncs__["src.terminal"] = function()
 	local table_concat = table.concat
 	local debug_traceback = debug.traceback
 
+	---@class lua-term.parent
+	local parent_class = {}
+
+	function parent_class:update()
+	end
+
+	---@param id string
+	---@param func lua-term.segment.func
+	---@return lua-term.segment
+	function parent_class:create_segment(id, func)
+	    ---@diagnostic disable-next-line: missing-return
+	end
+
+	---@param id string
+	---@param childs lua-term.segment[] | nil
+	function parent_class:create_group(id, childs)
+	    ---@diagnostic disable-next-line: missing-return
+	end
+
+	---@param child lua-term.segment
+	function parent_class:remove_child(child)
+	end
+
 	---@alias lua-term.segment.func (fun() : string | nil)
 
 	---@class lua-term.segment
 	---@field id string
-	---@field private m_func lua-term.segment.func
-	---@field private m_terminal lua-term.terminal
+	---@field protected m_parent lua-term.parent
 	---
-	---@field package p_requested_update boolean
+	---@field private m_func lua-term.segment.func
+	---@field private m_requested_update boolean
+	---
 	---@field package p_lines string[]
 	---@field package p_lines_count integer
 	---
@@ -663,14 +782,15 @@ __fileFuncs__["src.terminal"] = function()
 
 	---@param id string
 	---@param func lua-term.segment.func
-	---@param terminal lua-term.terminal
-	function segment_class.new(id, func, terminal)
+	---@param parent lua-term.parent
+	function segment_class.new(id, func, parent)
 	    return setmetatable({
 	        id = id,
-	        m_func = func,
-	        m_terminal = terminal,
+	        m_parent = parent,
 
-	        p_requested_update = true,
+	        m_func = func,
+	        m_requested_update = true,
+
 	        p_lines = {},
 	        p_lines_count = 0,
 
@@ -682,6 +802,8 @@ __fileFuncs__["src.terminal"] = function()
 
 	---@package
 	function segment_class:pre_render()
+	    self.m_requested_update = false
+
 	    local pre_render_thread = coroutine.create(self.m_func)
 	    local success, str_or_err_msg = coroutine.resume(pre_render_thread)
 	    if not success then
@@ -707,29 +829,140 @@ __fileFuncs__["src.terminal"] = function()
 
 	---@param update boolean | nil
 	function segment_class:remove(update)
-	    update = update or true
+	    update = utils.value.default(update, true)
 
-	    self.m_terminal:remove_segment(self)
+	    self.m_parent:remove_child(self)
 
 	    if update then
-	        self.m_terminal:update()
+	        self.m_parent:update()
 	    end
 	end
 
 	---@param update boolean | nil
 	function segment_class:changed(update)
+	    self.m_requested_update = true
+
+	    if update then
+	        self.m_parent:update()
+	    end
+	end
+
+	function segment_class:requested_update()
+	    return self.m_requested_update
+	end
+
+	-------------
+	--- Group ---
+	-------------
+
+	---@class lua-term.segment.group : lua-term.segment, lua-term.parent
+	---@field private m_requested_update boolean
+	---@field private m_childs lua-term.segment[]
+	local group_class = {}
+
+	---@param id string
+	---@param parent lua-term.parent
+	---@param childs lua-term.segment[] | nil
+	---@return lua-term.segment.group
+	function group_class.new(id, parent, childs)
+	    return setmetatable({
+	        id = id,
+
+	        m_childs = childs or {},
+	        m_requested_update = false,
+
+	        m_parent = parent,
+
+	        p_lines = {},
+	        p_lines_count = 0,
+
+	        p_line = 0
+	    }, { __index = group_class })
+	end
+
+	function group_class:pre_render()
+	    self.p_lines = {}
+
+	    for _, child in pairs(self.m_childs) do
+	        if child:requested_update() then
+	            child:pre_render()
+	        end
+
+	        for _, line in ipairs(child.p_lines) do
+	            table_insert(self.p_lines, line)
+	        end
+	    end
+
+	    self.p_lines_count = #self.p_lines
+
+	    self.m_requested_update = false
+	end
+
+	---@param update boolean | nil
+	function group_class:remove(update)
+	    update = utils.value.default(update, true)
+
+	    self.m_parent:remove_child(self)
+
+	    if update then
+	        self.m_parent:update()
+	    end
+	end
+
+	---@param update boolean | nil
+	function group_class:changed(update)
 	    self.p_requested_update = true
 
 	    if update then
-	        self.m_terminal:update()
+	        self.m_parent:update()
 	    end
+	end
+
+	function group_class:requested_update()
+	    if self.m_requested_update then
+	        return true
+	    end
+
+	    for _, child in ipairs(self.m_childs) do
+	        if child:requested_update() then
+	            return true
+	        end
+	    end
+	end
+
+	-- lua-term.parent
+
+	function group_class:update()
+	    self.m_parent:update()
+	end
+
+	function group_class:create_segment(id, func)
+	    local segment = segment_class.new(id, func, self)
+	    table_insert(self.m_childs, segment)
+	    return segment
+	end
+
+	function group_class:create_group(id, childs)
+	    local group = group_class.new(id, self, childs)
+	    table_insert(self.m_childs, group)
+	    return group
+	end
+
+	function group_class:remove_child(child)
+	    for index, value in pairs(self.m_childs) do
+	        if value == child then
+	            table_remove(self.m_childs, index)
+	        end
+	    end
+
+	    self.m_requested_update = true
 	end
 
 	----------------
 	--- Terminal ---
 	----------------
 
-	---@class lua-term.terminal
+	---@class lua-term.terminal : lua-term.parent
 	---@field show_ids boolean
 	---
 	---@field private m_stream file*
@@ -754,7 +987,7 @@ __fileFuncs__["src.terminal"] = function()
 	        m_segments = {},
 	        m_cursor_pos = 1,
 	    }, {
-	        __index = terminal
+	        __index = terminal,
 	    })
 	end
 
@@ -767,28 +1000,6 @@ __fileFuncs__["src.terminal"] = function()
 
 	    stdout_terminal = terminal.new(io.stdout)
 	    return stdout_terminal
-	end
-
-	function terminal:overrite_print()
-	    if self.m_org_print then
-	        return
-	    end
-	    self.m_org_print = print
-
-	    ---@param ... any
-	    ---@return lua-term.segment
-	    function print(...)
-	        return self:print(...)
-	    end
-	end
-
-	function terminal:restore_print()
-	    if not self.m_org_print then
-	        return
-	    end
-
-	    print = self.m_org_print
-	    self.m_org_print = nil
 	end
 
 	---@param ... any
@@ -806,21 +1017,19 @@ __fileFuncs__["src.terminal"] = function()
 	    return print_segment
 	end
 
-	---@param id string
-	---@param func lua-term.segment.func
-	---@param pos integer | nil
-	function terminal:create_segment(id, func, pos)
+	function terminal:create_segment(id, func)
 	    local segment = segment_class.new(id, func, self)
-	    if pos then
-	        table_insert(self.m_segments, pos, segment)
-	    else
-	        table_insert(self.m_segments, segment)
-	    end
+	    table_insert(self.m_segments, segment)
 	    return segment
 	end
 
-	---@param segment lua-term.segment
-	function terminal:remove_segment(segment)
+	function terminal:create_group(id, childs)
+	    local group = group_class.new(id, self, childs)
+	    table_insert(self.m_segments, group)
+	    return group
+	end
+
+	function terminal:remove_child(segment)
 	    for index, segment_value in ipairs(self.m_segments) do
 	        if segment_value == segment then
 	            table_remove(self.m_segments, index)
@@ -862,8 +1071,7 @@ __fileFuncs__["src.terminal"] = function()
 	    end
 
 	    for _, segment in ipairs(self.m_segments) do
-	        if segment.p_requested_update then
-	            segment.p_requested_update = false
+	        if segment:requested_update() then
 	            segment:pre_render()
 	        elseif segment.p_line == line_buffer_pos then
 	            line_buffer_pos = line_buffer_pos + segment.p_lines_count
@@ -896,7 +1104,8 @@ __fileFuncs__["src.terminal"] = function()
 	    end
 
 	    if #self.m_segments > 0 then
-	        self:jump_to_line(self.m_segments[#self.m_segments].p_line + 1)
+	        local last_segment = self.m_segments[#self.m_segments]
+	        self:jump_to_line(last_segment.p_line + last_segment.p_lines_count)
 	    else
 	        self:jump_to_line(1)
 	    end
@@ -909,8 +1118,10 @@ __fileFuncs__["src.terminal"] = function()
 
 end
 
-__fileFuncs__["src.components"] = function()
-	local colors = __loadFile__("third-party.ansicolors")
+__bundler__.__files__["src.components"] = function()
+	local utils = __bundler__.__loadFile__("utils.utils")
+
+	local colors = __bundler__.__loadFile__("third-party.ansicolors")
 
 	local string_rep = string.rep
 
@@ -927,8 +1138,6 @@ __fileFuncs__["src.components"] = function()
 	---
 	---@field color_bg ansicolors.color | nil (default: black)
 	---@field color_fg ansicolors.color | nil (default: magenta)
-	---
-	---@field pos integer | nil (default: at the end)
 
 	---@class lua-term.components.loading.config
 	---@field length integer
@@ -947,10 +1156,10 @@ __fileFuncs__["src.components"] = function()
 	components.loading = loading
 
 	---@param id string
-	---@param terminal lua-term.terminal
+	---@param parent lua-term.parent
 	---@param config lua-term.components.loading.config.create | nil
 	---@return lua-term.components.loading
-	function loading.new(id, terminal, config)
+	function loading.new(id, parent, config)
 	    config = config or {}
 	    config.color_bg = config.color_bg or colors.onblack
 	    config.color_fg = config.color_fg or colors.onmagenta
@@ -963,11 +1172,10 @@ __fileFuncs__["src.components"] = function()
 
 	        config = config,
 	    }, { __index = loading })
-	    instance.m_segment = terminal:create_segment(id, function()
+	    instance.m_segment = parent:create_segment(id, function()
 	        return instance:render()
-	    end, config.pos or nil)
+	    end)
 
-	    config.pos = nil
 	    config.state_percent = nil
 
 	    return instance
@@ -1031,10 +1239,10 @@ __fileFuncs__["src.components"] = function()
 	components.throbber = throbber
 
 	---@param id string
-	---@param terminal lua-term.terminal
+	---@param parent lua-term.parent
 	---@param config lua-term.components.throbber.config.create | nil
 	---@return lua-term.components.throbber
-	function throbber.new(id, terminal, config)
+	function throbber.new(id, parent, config)
 	    config = config or {}
 	    config.space = config.space or 2
 	    config.color_bg = config.color_bg or colors.reset
@@ -1049,7 +1257,7 @@ __fileFuncs__["src.components"] = function()
 
 	        config = config
 	    }, { __index = throbber })
-	    instance.m_segment = terminal:create_segment(id, function()
+	    instance.m_segment = parent:create_segment(id, function()
 	        return instance:render()
 	    end)
 
@@ -1085,7 +1293,7 @@ __fileFuncs__["src.components"] = function()
 
 	---@param value boolean | nil
 	function throbber:rotate_on_every_update(value)
-	    self.m_rotate_on_every_update = value or true
+	    self.m_rotate_on_every_update = utils.value.default(value, true)
 	end
 
 	---@param update boolean | nil
@@ -1097,23 +1305,23 @@ __fileFuncs__["src.components"] = function()
 
 end
 
-__fileFuncs__["__main__"] = function()
+__bundler__.__files__["__main__"] = function()
 	---@class lua-term
 	---@field colors ansicolors
 	---
 	---@field terminal lua-term.terminal
 	---@field components lua-term.components
 	local term = {
-	    colors = __loadFile__("third-party.ansicolors"),
+	    colors = __bundler__.__loadFile__("third-party.ansicolors"),
 
-	    terminal = __loadFile__("src.terminal"),
-	    components = __loadFile__("src.components")
+	    terminal = __bundler__.__loadFile__("src.terminal"),
+	    components = __bundler__.__loadFile__("src.components")
 	}
 
 	return term
 
 end
 
----@type lua-term
-local main = __fileFuncs__["__main__"]()
-return main
+---@type { [1]: lua-term }
+local main = { __bundler__.__main__() }
+return table.unpack(main)

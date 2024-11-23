@@ -1,3 +1,5 @@
+local utils = require("utils.utils")
+
 local colors = require("third-party.ansicolors")
 
 local string_rep = string.rep
@@ -170,7 +172,7 @@ end
 
 ---@param value boolean | nil
 function throbber:rotate_on_every_update(value)
-    self.m_rotate_on_every_update = value or true
+    self.m_rotate_on_every_update = utils.value.default(value, true)
 end
 
 ---@param update boolean | nil

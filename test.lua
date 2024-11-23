@@ -33,13 +33,11 @@ for i = 1, 6 do
     end
     test2:remove()
 
-    test:changed(100 / 6 * i, true)
     sleep(0.2)
+    test:changed(100 / 6 * i, true)
 end
 test_print:remove(false)
 footer:remove(false)
-
-sleep(1)
 terminal:update()
 
 print("## END ##")

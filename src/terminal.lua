@@ -72,6 +72,8 @@ end
 
 ---@package
 function segment_class:pre_render()
+    self.m_requested_update = false
+
     local pre_render_thread = coroutine.create(self.m_func)
     local success, str_or_err_msg = coroutine.resume(pre_render_thread)
     if not success then
@@ -93,8 +95,6 @@ function segment_class:pre_render()
     end
 
     self.p_lines_count = #self.p_lines
-
-    self.m_requested_update = false
 end
 
 ---@param update boolean | nil
