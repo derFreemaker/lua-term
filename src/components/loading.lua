@@ -1,3 +1,4 @@
+local utils = require("misc.utils")
 local string_rep = string.rep
 
 local colors = require("third-party.ansicolors")
@@ -38,7 +39,7 @@ function loading.new(id, parent, config)
     ---@type lua-term.components.loading
     local instance = setmetatable({
         id = id,
-        state_percent = config.state_percent or 0,
+        state_percent = utils.value.clamp(config.state_percent or 0, 0, 100),
 
         config = config,
     }, { __index = loading })
@@ -65,17 +66,18 @@ end
 ---@param update boolean | nil
 function loading:changed(state_percent, update)
     if state_percent then
-        self.state_percent = state_percent
+        self.state_percent = utils.value.clamp(state_percent, 0, 100)
     end
 
-    self.m_segment:changed(update or true)
+    self.m_segment:changed(utils.value.default(update, true))
 end
 
 ---@param state_percent integer
 ---@param update boolean | nil
 function loading:changed_relativ(state_percent, update)
-    self.state_percent = self.state_percent + state_percent
-    self.m_segment:changed(update or true)
+    self.state_percent = utils.value.clamp(self.state_percent + state_percent, 0, 100)
+
+    self.m_segment:changed(utils.value.default(update, true))
 end
 
 ---@param update boolean | nil

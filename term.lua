@@ -380,7 +380,7 @@ __bundler__.__files__["src.segment.entry"] = function()
 
 end
 
-__bundler__.__files__["utils.utils"] = function()
+__bundler__.__files__["misc.utils"] = function()
 	---@diagnostic disable
 
 	local __bundler__ = {
@@ -852,18 +852,12 @@ __bundler__.__files__["utils.utils"] = function()
 
 		---@param value number
 		---@param min number
+		---@param max number
 		---@return number
-		function _value.min(value, min)
+		function _value.clamp(value, min, max)
 		    if value < min then
 		        return min
 		    end
-		    return value
-		end
-
-		---@param value number
-		---@param max number
-		---@return number
-		function _value.max(value, max)
 		    if value > max then
 		        return max
 		    end
@@ -898,7 +892,7 @@ __bundler__.__files__["utils.utils"] = function()
 end
 
 __bundler__.__files__["src.segment.init"] = function()
-	local utils = __bundler__.__loadFile__("utils.utils")
+	local utils = __bundler__.__loadFile__("misc.utils")
 
 	local string_rep = string.rep
 	local debug_traceback = debug.traceback
@@ -1018,7 +1012,7 @@ __bundler__.__files__["src.components.text"] = function()
 end
 
 __bundler__.__files__["src.components.group"] = function()
-	local utils = __bundler__.__loadFile__("utils.utils")
+	local utils = __bundler__.__loadFile__("misc.utils")
 	local table_insert = table.insert
 	local table_remove = table.remove
 
@@ -1138,6 +1132,7 @@ __bundler__.__files__["src.components.group"] = function()
 end
 
 __bundler__.__files__["src.components.loading"] = function()
+	local utils = __bundler__.__loadFile__("misc.utils")
 	local string_rep = string.rep
 
 	local colors = __bundler__.__loadFile__("third-party.ansicolors")
@@ -1178,7 +1173,7 @@ __bundler__.__files__["src.components.loading"] = function()
 	    ---@type lua-term.components.loading
 	    local instance = setmetatable({
 	        id = id,
-	        state_percent = config.state_percent or 0,
+	        state_percent = utils.value.clamp(config.state_percent or 0, 0, 100),
 
 	        config = config,
 	    }, { __index = loading })
@@ -1205,17 +1200,18 @@ __bundler__.__files__["src.components.loading"] = function()
 	---@param update boolean | nil
 	function loading:changed(state_percent, update)
 	    if state_percent then
-	        self.state_percent = state_percent
+	        self.state_percent = utils.value.clamp(state_percent, 0, 100)
 	    end
 
-	    self.m_segment:changed(update or true)
+	    self.m_segment:changed(utils.value.default(update, true))
 	end
 
 	---@param state_percent integer
 	---@param update boolean | nil
 	function loading:changed_relativ(state_percent, update)
-	    self.state_percent = self.state_percent + state_percent
-	    self.m_segment:changed(update or true)
+	    self.state_percent = utils.value.clamp(self.state_percent + state_percent, 0, 100)
+
+	    self.m_segment:changed(utils.value.default(update, true))
 	end
 
 	---@param update boolean | nil
@@ -1228,7 +1224,7 @@ __bundler__.__files__["src.components.loading"] = function()
 end
 
 __bundler__.__files__["src.components.throbber"] = function()
-	local utils = __bundler__.__loadFile__("utils.utils")
+	local utils = __bundler__.__loadFile__("misc.utils")
 	local string_rep = string.rep
 
 	local colors = __bundler__.__loadFile__("third-party.ansicolors")

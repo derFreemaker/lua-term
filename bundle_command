@@ -1,1 +1,1 @@
-lua utils/bundle.lua -o term.lua -t lua-term src/init.lua
+lua misc/bundle.lua -o term.lua -t lua-term src/init.lua
