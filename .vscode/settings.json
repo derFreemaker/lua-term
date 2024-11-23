@@ -1,0 +1,4 @@
+{
+    "vscode-lua-minify.renameVariables": false,
+    "vscode-lua-minify.renameGlobals": false
+}

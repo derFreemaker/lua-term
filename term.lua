@@ -73,7 +73,50 @@
 	    __bundler__.__cleanup__()
 	    return table.unpack(items)
 	end
-	__bundler__.__files__["third-party.ansicolors"] = function()
+	__bundler__.__files__["src.segment.interface"] = function()
+	---@meta _
+
+	---@class lua-term.segment_interface
+	local segment_interface = {}
+
+	---@return boolean update_requested
+	function segment_interface:requested_update()
+	end
+
+	---@param context lua-term.render_context
+	---@return table<integer, string> update_buffer
+	---@return integer lines
+	function segment_interface:render(context)
+	end
+
+end
+
+__bundler__.__files__["src.segment.parent"] = function()
+	---@meta _
+
+	---@class lua-term.segment_parent
+	local parent_class = {}
+
+	function parent_class:update()
+	end
+
+	---@param ... any
+	---@return lua-term.segment
+	function parent_class:print(...)
+	end
+
+	---@param id string
+	---@param segment lua-term.segment_interface
+	function parent_class:add_segment(id, segment)
+	end
+
+	---@param child lua-term.segment_interface
+	function parent_class:remove_child(child)
+	end
+
+end
+
+__bundler__.__files__["third-party.ansicolors"] = function()
 	-- Copyright (c) 2009 Rob Hoelz <rob@hoelzro.net>
 	--
 	-- Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -115,8 +158,8 @@
 	end
 
 	---@private
-	function color:__concat(other)
-	    return tostring(self) .. tostring(other)
+	function color.__concat(left, right)
+	    return tostring(left) .. tostring(right)
 	end
 
 	---@private
@@ -131,6 +174,7 @@
 	end
 
 	-- attributes
+
 	ansicolors.reset = makecolor("0")
 	ansicolors.clear = makecolor("0")
 	ansicolors.default = makecolor("0")
@@ -143,6 +187,7 @@
 	ansicolors.hidden = makecolor("8")
 
 	-- foreground
+
 	ansicolors.black = makecolor("30")
 	ansicolors.red = makecolor("31")
 	ansicolors.green = makecolor("32")
@@ -161,6 +206,7 @@
 	end
 
 	-- background
+
 	ansicolors.onblack = makecolor("40")
 	ansicolors.onred = makecolor("41")
 	ansicolors.ongreen = makecolor("42")
@@ -178,7 +224,159 @@
 	    return makecolor("48;5;" .. tostring(color_code))
 	end
 
+	-- transparent
+
+	---@type ansicolors.color
+	ansicolors.transparent = setmetatable({}, {
+	    __tostring = function()
+	        return ""
+	    end,
+	    __concat = function(left, right)
+	        return tostring(left) .. tostring(right)
+	    end,
+	    __call = function(self, s)
+	        return s
+	    end
+	})
+
 	return ansicolors
+
+end
+
+__bundler__.__files__["src.maketermfunc"] = function()
+	local sformat = string.format
+
+	return function(sequence_fmt)
+	    sequence_fmt = '\027[' .. sequence_fmt
+	    return function(...)
+	        return sformat(sequence_fmt, ...)
+	    end
+	end
+
+end
+
+__bundler__.__files__["src.cursor"] = function()
+	local make_term_func = __bundler__.__loadFile__("src.maketermfunc")
+
+	---@class lua-term.cursor
+	local cursor = {
+	    ---@type fun() : string
+	    home = make_term_func("H"),
+	    ---@type fun(line: integer, column: integer)  : string
+	    jump = make_term_func("%d;%dH"),
+	    ---@type fun(value: integer) : string
+	    go_up = make_term_func("%dA"),
+	    ---@type fun(value: integer) : string
+	    go_down = make_term_func("%dB"),
+	    ---@type fun(value: integer) : string
+	    go_right = make_term_func("%dC"),
+	    ---@type fun(value: integer) : string
+	    go_left = make_term_func("%dD"),
+	    ---@type fun() : string
+	    save = make_term_func("s"),
+	    ---@type fun() : string
+	    restore = make_term_func("u"),
+	}
+
+	return cursor
+
+end
+
+__bundler__.__files__["src.erase"] = function()
+	local make_term_func = __bundler__.__loadFile__("src.maketermfunc")
+
+	---@class lua-term.erase
+	local erase = {}
+
+	erase.till_end = make_term_func("0J")
+	erase.till_begin = make_term_func("1J")
+	erase.screen = make_term_func("2J")
+	erase.saved_lines = make_term_func("3J")
+
+	erase.till_eol = make_term_func("0K")
+	erase.till_bol = make_term_func("1K")
+	erase.line = make_term_func("2K")
+
+	return erase
+
+end
+
+__bundler__.__files__["src.segment.entry"] = function()
+	local string_rep = string.rep
+	local table_insert = table.insert
+	local table_remove = table.remove
+
+	---@class lua-term.segment_entry
+	---@field id string
+	---@field line integer
+	---@field lines string[]
+	---@field lines_count integer
+	---
+	---@field private m_showing_id boolean
+	---@field private m_segment lua-term.segment_interface
+	local segment_entry_class = {}
+
+	---@param id string
+	---@param segment lua-term.segment_interface
+	---@return lua-term.segment_entry
+	function segment_entry_class.new(id, segment)
+	    return setmetatable({
+	        id = id,
+	        line = 0,
+	        lines = {},
+	        lines_count = 0,
+
+	        m_showing_id = false,
+	        m_segment = segment,
+	    }, { __index = segment_entry_class })
+	end
+
+	---@return boolean
+	function segment_entry_class:requested_update()
+	    return self.m_segment:requested_update()
+	end
+
+	---@param segment lua-term.segment_interface
+	---@return boolean
+	function segment_entry_class:has_segment(segment)
+	    return self.m_segment == segment
+	end
+
+	---@param context lua-term.render_context
+	---@return table<integer, string>
+	function segment_entry_class:pre_render(context)
+	    local buffer, lines = self.m_segment:render(context)
+
+	    if context.show_ids ~= self.m_showing_id then
+	        if context.show_ids then
+	            local id_str = "---- '" .. self.id .. "' "
+	            id_str = id_str .. string_rep("-", 80 - id_str:len())
+	            table_insert(buffer, 1, id_str)
+	            table_insert(buffer, string_rep("-", 80))
+	        else
+	            table_remove(self.lines, #self.lines)
+	            table_remove(self.lines, 1)
+	        end
+
+	        self.m_showing_id = context.show_ids
+	    elseif self.m_showing_id then
+	        for i = #buffer, 0, -1 do
+	            buffer[i + 1] = buffer[i]
+	        end
+	    end
+
+	    for index, content in pairs(buffer) do
+	        self.lines[index] = content
+	    end
+	    for i = lines + 1, self.lines_count do
+	        self.lines[i] = nil
+	    end
+	    self.lines_count = #self.lines
+
+	    return buffer
+	end
+
+	return segment_entry_class
 
 end
 
@@ -189,6 +387,8 @@ __bundler__.__files__["utils.utils"] = function()
 	    __files__ = {},
 	    __binary_files__ = {},
 	    __cache__ = {},
+	    __temp_files__ = {},
+	    __org_exit__ = os.exit
 	}
 	function __bundler__.__get_os__()
 	    if package.config:sub(1, 1) == '\\' then
@@ -200,8 +400,12 @@ __bundler__.__files__["utils.utils"] = function()
 	function __bundler__.__loadFile__(module)
 	    if not __bundler__.__cache__[module] then
 	        if __bundler__.__binary_files__[module] then
+	        local tempDir = os.getenv("TEMP") or os.getenv("TMP")
+	            if not tempDir then
+	                tempDir = "/tmp"
+	            end
 	            local os_type = __bundler__.__get_os__()
-	            local file_path = "." .. os.tmpname()
+	            local file_path = tempDir .. os.tmpname()
 	            local file = io.open(file_path, "wb")
 	            if not file then
 	                error("unable to open file: " .. file_path)
@@ -212,17 +416,41 @@ __bundler__.__files__["utils.utils"] = function()
 	            else
 	                content = __bundler__.__files__[module .. ".so"]
 	            end
-	            for i = 1, #content do
-	                local byte = tonumber(content[i], 16)
+	            local content_len = content:len()
+	            for i = 2, content_len, 2 do
+	                local byte = tonumber(content:sub(i - 1, i), 16)
 	                file:write(string.char(byte))
 	            end
 	            file:close()
 	            __bundler__.__cache__[module] = { package.loadlib(file_path, "luaopen_" .. module)() }
+	            table.insert(__bundler__.__temp_files__, file_path)
 	        else
 	            __bundler__.__cache__[module] = { __bundler__.__files__[module]() }
 	        end
 	    end
 	    return table.unpack(__bundler__.__cache__[module])
+	end
+	function __bundler__.__cleanup__()
+	    for _, file_path in ipairs(__bundler__.__temp_files__) do
+	        os.remove(file_path)
+	    end
+	end
+	---@diagnostic disable-next-line: duplicate-set-field
+	function os.exit(...)
+	    __bundler__.__cleanup__()
+	    __bundler__.__org_exit__(...)
+	end
+	function __bundler__.__main__()
+	    local loading_thread = coroutine.create(__bundler__.__loadFile__)
+	    local success, items = (function(success, ...) return success, {...} end)
+	        (coroutine.resume(loading_thread, "__main__"))
+	    if not success then
+	        print("error in bundle loading thread:\n"
+	            .. debug.traceback(loading_thread, items[1]))
+	    end
+	    coroutine.close(loading_thread)
+	    __bundler__.__cleanup__()
+	    return table.unpack(items)
 	end
 	__bundler__.__files__["src.utils.string"] = function()
 		---@class Freemaker.utils.string
@@ -664,167 +892,66 @@ __bundler__.__files__["utils.utils"] = function()
 	end
 
 	---@type { [1]: Freemaker.utils }
-	local main = { __bundler__.__loadFile__("__main__") }
+	local main = { __bundler__.__main__() }
 	return table.unpack(main)
 
 end
 
-__bundler__.__files__["src.maketermfunc"] = function()
-	local sformat = string.format
-
-	return function(sequence_fmt)
-	    sequence_fmt = '\027[' .. sequence_fmt
-	    return function(...)
-	        return sformat(sequence_fmt, ...)
-	    end
-	end
-
-end
-
-__bundler__.__files__["src.cursor"] = function()
-	local make_term_func = __bundler__.__loadFile__("src.maketermfunc")
-
-	---@class lua-term.cursor
-	local cursor = {
-	    ---@type fun() : string
-	    home = make_term_func("H"),
-	    ---@type fun(line: integer, column: integer)  : string
-	    jump = make_term_func("%d;%dH"),
-	    ---@type fun(value: integer) : string
-	    go_up = make_term_func("%dA"),
-	    ---@type fun(value: integer) : string
-	    go_down = make_term_func("%dB"),
-	    ---@type fun(value: integer) : string
-	    go_right = make_term_func("%dC"),
-	    ---@type fun(value: integer) : string
-	    go_left = make_term_func("%dD"),
-	    ---@type fun() : string
-	    save = make_term_func("s"),
-	    ---@type fun() : string
-	    restore = make_term_func("u"),
-	}
-
-	return cursor
-
-end
-
-__bundler__.__files__["src.erase"] = function()
-	local make_term_func = __bundler__.__loadFile__("src.maketermfunc")
-
-	---@class lua-term.erase
-	local erase = {}
-
-	erase.till_end = make_term_func("0J")
-	erase.till_begin = make_term_func("1J")
-	erase.screen = make_term_func("2J")
-	erase.saved_lines = make_term_func("3J")
-
-	erase.till_eol = make_term_func("0K")
-	erase.till_bol = make_term_func("1K")
-	erase.line = make_term_func("2K")
-
-	return erase
-
-end
-
-__bundler__.__files__["src.terminal"] = function()
+__bundler__.__files__["src.segment.init"] = function()
 	local utils = __bundler__.__loadFile__("utils.utils")
 
-	local cursor = __bundler__.__loadFile__("src.cursor")
-	local erase = __bundler__.__loadFile__("src.erase")
-
-	local pairs = pairs
 	local string_rep = string.rep
-	local math_abs = math.abs
-	local io_type = io.type
-	local table_insert = table.insert
-	local table_remove = table.remove
-	local table_concat = table.concat
 	local debug_traceback = debug.traceback
-
-	---@class lua-term.parent
-	local parent_class = {}
-
-	function parent_class:update()
-	end
-
-	---@param id string
-	---@param func lua-term.segment.func
-	---@return lua-term.segment
-	function parent_class:create_segment(id, func)
-	    ---@diagnostic disable-next-line: missing-return
-	end
-
-	---@param id string
-	---@param childs lua-term.segment[] | nil
-	function parent_class:create_group(id, childs)
-	    ---@diagnostic disable-next-line: missing-return
-	end
-
-	---@param child lua-term.segment
-	function parent_class:remove_child(child)
-	end
 
 	---@alias lua-term.segment.func (fun() : string | nil)
 
-	---@class lua-term.segment
-	---@field id string
-	---@field protected m_parent lua-term.parent
-	---
+	---@class lua-term.segment : lua-term.segment_interface
 	---@field private m_func lua-term.segment.func
 	---@field private m_requested_update boolean
 	---
-	---@field package p_lines string[]
-	---@field package p_lines_count integer
-	---
-	---@field package p_line integer
+	---@field private m_parent lua-term.segment_parent
 	local segment_class = {}
 
 	---@param id string
 	---@param func lua-term.segment.func
-	---@param parent lua-term.parent
+	---@param parent lua-term.segment_parent
+	---@return lua-term.segment
 	function segment_class.new(id, func, parent)
-	    return setmetatable({
-	        id = id,
-	        m_parent = parent,
-
+	    local instance = setmetatable({
 	        m_func = func,
 	        m_requested_update = true,
 
-	        p_lines = {},
-	        p_lines_count = 0,
-
-	        p_line = 0
+	        m_parent = parent,
 	    }, {
 	        __index = segment_class
 	    })
+	    parent:add_segment(id, instance)
+
+	    return instance
 	end
 
-	---@package
-	function segment_class:pre_render()
+	---@param context lua-term.render_context
+	---@return table<integer, string> update_buffer
+	---@return integer lines
+	function segment_class:render(context)
 	    self.m_requested_update = false
 
 	    local pre_render_thread = coroutine.create(self.m_func)
 	    local success, str_or_err_msg = coroutine.resume(pre_render_thread)
 	    if not success then
-	        str_or_err_msg =
-	            string_rep("-", 80) .. "\n" ..
-	            "error pre rendering segement '" .. self.id .. "':\n" ..
-	            debug_traceback(pre_render_thread, str_or_err_msg) .. "\n" ..
-	            string_rep("-", 80)
+	        str_or_err_msg = ("%s\nerror rendering segment:\n%s\n%s"):format(
+	            string_rep("-", 80),
+	            debug_traceback(pre_render_thread, str_or_err_msg),
+	            string_rep("-", 80))
 	    end
 	    coroutine.close(pre_render_thread)
 
-	    if not str_or_err_msg or str_or_err_msg == "" then
-	        self.p_lines = {}
-	    else
-	        self.p_lines = utils.string.split(str_or_err_msg, "\n")
-	        if self.p_lines[#self.p_lines] == "" then
-	            self.p_lines[#self.p_lines] = nil
-	        end
+	    if not str_or_err_msg then
+	        return {}, 0
 	    end
 
-	    self.p_lines_count = #self.p_lines
+	    local buffer = utils.string.split(str_or_err_msg, "\n")
+	    return buffer, #buffer
 	end
 
 	---@param update boolean | nil
@@ -851,51 +978,112 @@ __bundler__.__files__["src.terminal"] = function()
 	    return self.m_requested_update
 	end
 
-	-------------
-	--- Group ---
-	-------------
+	return segment_class
 
-	---@class lua-term.segment.group : lua-term.segment, lua-term.parent
+end
+
+__bundler__.__files__["src.components.text"] = function()
+	local table_insert = table.insert
+	local table_concat = table.concat
+
+	local segment_class = __bundler__.__loadFile__("src.segment.init")
+
+	---@class lua-term.components.text
+	local _text = {}
+
+	---@param id string
+	---@param parent lua-term.segment_parent
+	---@param text string
+	function _text.new(id, parent, text)
+	    return segment_class.new(id, function()
+	        return text
+	    end, parent)
+	end
+
+	---@param parent lua-term.segment_parent
+	---@param ... any
+	function _text.print(parent, ...)
+	    local items = {}
+	    for _, value in ipairs({ ... }) do
+	        table_insert(items, tostring(value))
+	    end
+	    local text = table_concat(items, "\t")
+	    local segment = _text.new("<print>", parent, text)
+	    parent:update()
+	    return segment
+	end
+
+	return _text
+
+end
+
+__bundler__.__files__["src.components.group"] = function()
+	local utils = __bundler__.__loadFile__("utils.utils")
+	local table_insert = table.insert
+	local table_remove = table.remove
+
+	local text_component = __bundler__.__loadFile__("src.components.text")
+	local entry_class = __bundler__.__loadFile__("src.segment.entry")
+
+	---@class lua-term.components.group : lua-term.segment_interface, lua-term.segment_parent
 	---@field private m_requested_update boolean
-	---@field private m_childs lua-term.segment[]
+	---@field private m_childs lua-term.segment_entry[]
+	---@field private m_parent lua-term.segment_parent
 	local group_class = {}
 
 	---@param id string
-	---@param parent lua-term.parent
-	---@param childs lua-term.segment[] | nil
-	---@return lua-term.segment.group
-	function group_class.new(id, parent, childs)
-	    return setmetatable({
-	        id = id,
-
+	---@param childs lua-term.segment_entry[] | nil
+	---@param parent lua-term.segment_parent
+	---@return lua-term.components.group
+	function group_class.new(id, childs, parent)
+	    local instance = setmetatable({
 	        m_childs = childs or {},
 	        m_requested_update = false,
 
 	        m_parent = parent,
-
-	        p_lines = {},
-	        p_lines_count = 0,
-
-	        p_line = 0
 	    }, { __index = group_class })
+	    parent:add_segment(id, instance)
+
+	    return instance
 	end
 
-	function group_class:pre_render()
-	    self.p_lines = {}
+	---@param context lua-term.render_context
+	---@return table<integer, string> update_buffer
+	---@return integer lines
+	function group_class:render(context)
+	    self.m_requested_update = false
 
-	    for _, child in pairs(self.m_childs) do
-	        if child:requested_update() then
-	            child:pre_render()
-	        end
-
-	        for _, line in ipairs(child.p_lines) do
-	            table_insert(self.p_lines, line)
-	        end
+	    if #self.m_childs == 0 then
+	        return {}, 0
 	    end
 
-	    self.p_lines_count = #self.p_lines
+	    local line_buffer_pos = 0
+	    local line_buffer = {}
+	    for _, child in pairs(self.m_childs) do
+	        if not context.show_ids and not child:requested_update() then
+	            if child.line ~= line_buffer_pos then
+	                for index, line in ipairs(child.lines) do
+	                    line_buffer[line_buffer_pos + index] = line
+	                end
+	            end
 
-	    self.m_requested_update = false
+	            line_buffer_pos = line_buffer_pos + child.lines_count
+	            goto continue
+	        end
+
+	        local update_lines = child:pre_render(context)
+	        child.line = line_buffer_pos
+	        for index, line in pairs(update_lines) do
+	            line_buffer[line_buffer_pos + index] = line
+	        end
+	        line_buffer_pos = line_buffer_pos + #update_lines
+
+	        ::continue::
+	    end
+
+	    local last_child = self.m_childs[#self.m_childs]
+	    local last_line = last_child.line + last_child.lines_count
+	    return line_buffer, last_line
 	end
 
 	---@param update boolean | nil
@@ -903,15 +1091,6 @@ __bundler__.__files__["src.terminal"] = function()
 	    update = utils.value.default(update, true)
 
 	    self.m_parent:remove_child(self)
-
-	    if update then
-	        self.m_parent:update()
-	    end
-	end
-
-	---@param update boolean | nil
-	function group_class:changed(update)
-	    self.p_requested_update = true
 
 	    if update then
 	        self.m_parent:update()
@@ -936,21 +1115,18 @@ __bundler__.__files__["src.terminal"] = function()
 	    self.m_parent:update()
 	end
 
-	function group_class:create_segment(id, func)
-	    local segment = segment_class.new(id, func, self)
-	    table_insert(self.m_childs, segment)
-	    return segment
+	function group_class:print(...)
+	    return text_component.print(self, ...)
 	end
 
-	function group_class:create_group(id, childs)
-	    local group = group_class.new(id, self, childs)
-	    table_insert(self.m_childs, group)
-	    return group
+	function group_class:add_segment(id, segment)
+	    local entry = entry_class.new(id, segment)
+	    table_insert(self.m_childs, entry)
 	end
 
 	function group_class:remove_child(child)
-	    for index, value in pairs(self.m_childs) do
-	        if value == child then
+	    for index, entry in pairs(self.m_childs) do
+	        if entry:has_segment(child) then
 	            table_remove(self.m_childs, index)
 	        end
 	    end
@@ -958,16 +1134,239 @@ __bundler__.__files__["src.terminal"] = function()
 	    self.m_requested_update = true
 	end
 
-	----------------
-	--- Terminal ---
-	----------------
+	return group_class
 
-	---@class lua-term.terminal : lua-term.parent
+end
+
+__bundler__.__files__["src.components.loading"] = function()
+	local string_rep = string.rep
+
+	local colors = __bundler__.__loadFile__("third-party.ansicolors")
+	local segment_class = __bundler__.__loadFile__("src.segment.init")
+
+	---@class lua-term.components.loading.config.create
+	---@field length integer | nil (default: 40)
+	---@field state_percent integer | nil in percent (default: 0)
+	---
+	---@field color_bg ansicolors.color | nil (default: black)
+	---@field color_fg ansicolors.color | nil (default: magenta)
+
+	---@class lua-term.components.loading.config
+	---@field length integer
+	---
+	---@field color_bg ansicolors.color
+	---@field color_fg ansicolors.color
+
+	---@class lua-term.components.loading
+	---@field id string
+	---@field state_percent integer
+	---
+	---@field config lua-term.components.loading.config
+	---
+	---@field private m_segment lua-term.segment
+	local loading = {}
+
+	---@param id string
+	---@param parent lua-term.segment_parent
+	---@param config lua-term.components.loading.config.create | nil
+	---@return lua-term.components.loading
+	function loading.new(id, parent, config)
+	    config = config or {}
+	    config.color_bg = config.color_bg or colors.onblack
+	    config.color_fg = config.color_fg or colors.onmagenta
+	    config.length = config.length or 40
+
+	    ---@type lua-term.components.loading
+	    local instance = setmetatable({
+	        id = id,
+	        state_percent = config.state_percent or 0,
+
+	        config = config,
+	    }, { __index = loading })
+	    instance.m_segment = segment_class.new(id, function()
+	        return instance:render()
+	    end, parent)
+
+	    config.state_percent = nil
+
+	    return instance
+	end
+
+	---@return string
+	function loading:render()
+	    local mark_tiles = math.floor(self.config.length * self.state_percent / 100)
+	    if mark_tiles == 0 then
+	        return self.config.color_bg(string_rep(" ", self.config.length))
+	    end
+
+	    return self.config.color_fg(string_rep(" ", mark_tiles)) .. self.config.color_bg(string_rep(" ", self.config.length - mark_tiles))
+	end
+
+	---@param state_percent integer | nil
+	---@param update boolean | nil
+	function loading:changed(state_percent, update)
+	    if state_percent then
+	        self.state_percent = state_percent
+	    end
+
+	    self.m_segment:changed(update or true)
+	end
+
+	---@param state_percent integer
+	---@param update boolean | nil
+	function loading:changed_relativ(state_percent, update)
+	    self.state_percent = self.state_percent + state_percent
+	    self.m_segment:changed(update or true)
+	end
+
+	---@param update boolean | nil
+	function loading:remove(update)
+	    self.m_segment:remove(update)
+	end
+
+	return loading
+
+end
+
+__bundler__.__files__["src.components.throbber"] = function()
+	local utils = __bundler__.__loadFile__("utils.utils")
+	local string_rep = string.rep
+
+	local colors = __bundler__.__loadFile__("third-party.ansicolors")
+	local segment_class = __bundler__.__loadFile__("src.segment.init")
+
+	---@class lua-term.components.throbber.config.create
+	---@field space integer | nil (default: 2)
+	---
+	---@field color_bg ansicolors.color | nil (default: transparent)
+	---@field color_fg ansicolors.color | nil (default: magenta)
+
+	---@class lua-term.components.throbber.config
+	---@field space integer
+	---
+	---@field color_bg ansicolors.color
+	---@field color_fg ansicolors.color
+
+	---@class lua-term.components.throbber
+	---@field id string
+	---
+	---@field config lua-term.components.throbber.config
+	---
+	---@field private m_rotate_on_every_update boolean
+	---
+	---@field private m_state integer
+	---
+	---@field private m_segment lua-term.segment
+	local throbber = {}
+
+	---@param id string
+	---@param parent lua-term.segment_parent
+	---@param config lua-term.components.throbber.config.create | nil
+	---@return lua-term.components.throbber
+	function throbber.new(id, parent, config)
+	    config = config or {}
+	    config.space = config.space or 2
+	    config.color_bg = config.color_bg or colors.transparent
+	    config.color_fg = config.color_fg or colors.magenta
+
+	    ---@type lua-term.components.throbber
+	    local instance = setmetatable({
+	        id = id,
+	        m_state = 0,
+
+	        m_rotate_on_every_update = false,
+
+	        config = config
+	    }, { __index = throbber })
+	    instance.m_segment = segment_class.new(id, function()
+	        return instance:render()
+	    end, parent)
+
+	    return instance
+	end
+
+	function throbber:render()
+	    self.m_state = self.m_state + 1
+	    if self.m_state > 3 then
+	        self.m_state = 0
+	    end
+
+	    local state_str
+	    if self.m_state == 0 then
+	        state_str = "\\"
+	    elseif self.m_state == 1 then
+	        state_str = "|"
+	    elseif self.m_state == 2 then
+	        state_str = "/"
+	    elseif self.m_state == 3 then
+	        state_str = "-"
+	    end
+
+	    if self.m_rotate_on_every_update then
+	        self.m_segment:changed()
+	    end
+
+	    return string_rep(" ", self.config.space) .. self.config.color_bg(self.config.color_fg(state_str))
+	end
+
+	function throbber:rotate()
+	    self.m_segment:changed(true)
+	end
+
+	---@param value boolean | nil
+	function throbber:rotate_on_every_update(value)
+	    self.m_rotate_on_every_update = utils.value.default(value, true)
+	end
+
+	---@param update boolean | nil
+	function throbber:remove(update)
+	    self.m_segment:remove(update)
+	end
+
+	return throbber
+
+end
+
+__bundler__.__files__["src.components.init"] = function()
+	---@class lua-term.components
+	---@field text lua-term.components.text
+	---
+	---@field loading lua-term.components.loading
+	---@field throbber lua-term.components.throbber
+	local components = {
+	    group = __bundler__.__loadFile__("src.components.group"),
+
+	    text = __bundler__.__loadFile__("src.components.text"),
+	    loading = __bundler__.__loadFile__("src.components.loading"),
+	    throbber = __bundler__.__loadFile__("src.components.throbber"),
+	}
+
+	return components
+
+end
+
+__bundler__.__files__["src.terminal"] = function()
+	local cursor = __bundler__.__loadFile__("src.cursor")
+	local erase = __bundler__.__loadFile__("src.erase")
+
+	local pairs = pairs
+	local math_abs = math.abs
+	local io_type = io.type
+	local table_insert = table.insert
+	local table_remove = table.remove
+
+	local entry_class = __bundler__.__loadFile__("src.segment.entry")
+	local components = __bundler__.__loadFile__("src.components.init")
+
+	---@class lua-term.render_context
+	---@field show_ids boolean
+
+	---@class lua-term.terminal : lua-term.segment_parent
 	---@field show_ids boolean
 	---
 	---@field private m_stream file*
 	---
-	---@field private m_segments lua-term.segment[]
+	---@field private m_segments lua-term.segment_entry[]
 	---
 	---@field private m_org_print function
 	---@field private m_cursor_pos integer
@@ -1005,44 +1404,20 @@ __bundler__.__files__["src.terminal"] = function()
 	---@param ... any
 	---@return lua-term.segment
 	function terminal:print(...)
-	    local items = {}
-	    for _, value in ipairs({ ... }) do
-	        table_insert(items, tostring(value))
-	    end
-	    local str = table_concat(items, "\t")
-	    local print_segment = stdout_terminal:create_segment("<print>", function()
-	        return str
-	    end)
-	    self:update()
-	    return print_segment
+	    return components.text.print(self, ...)
 	end
 
-	function terminal:create_segment(id, func)
-	    local segment = segment_class.new(id, func, self)
-	    table_insert(self.m_segments, segment)
-	    return segment
+	function terminal:add_segment(id, segment)
+	    local entry = entry_class.new(id, segment)
+	    table_insert(self.m_segments, entry)
 	end
 
-	function terminal:create_group(id, childs)
-	    local group = group_class.new(id, self, childs)
-	    table_insert(self.m_segments, group)
-	    return group
-	end
-
-	function terminal:remove_child(segment)
-	    for index, segment_value in ipairs(self.m_segments) do
-	        if segment_value == segment then
+	function terminal:remove_child(child)
+	    for index, entry in ipairs(self.m_segments) do
+	        if entry:has_segment(child) then
 	            table_remove(self.m_segments, index)
 	        end
 	    end
-	end
-
-	---@private
-	---@param ... string
-	function terminal:write_line(...)
-	    self.m_stream:write(...)
-	    self.m_stream:write("\n")
-	    self.m_cursor_pos = self.m_cursor_pos + 1
 	end
 
 	---@private
@@ -1065,47 +1440,48 @@ __bundler__.__files__["src.terminal"] = function()
 	    local line_buffer_pos = 1
 	    ---@type table<integer, string>
 	    local line_buffer = {}
-	    local function insert_line(line)
-	        line_buffer[line_buffer_pos] = line
-	        line_buffer_pos = line_buffer_pos + 1
-	    end
 
 	    for _, segment in ipairs(self.m_segments) do
-	        if segment:requested_update() then
-	            segment:pre_render()
-	        elseif segment.p_line == line_buffer_pos then
-	            line_buffer_pos = line_buffer_pos + segment.p_lines_count
-	            goto continue
+	        if not self.show_ids and not segment:requested_update() then
+	            if segment.line ~= line_buffer_pos then
+	                for index, line in ipairs(segment.lines) do
+	                    line_buffer[line_buffer_pos + index - 1] = line
+	                end
+
+	                segment.line = line_buffer_pos
+	            end
+	        else
+	            local context = {
+	                show_ids = self.show_ids
+	            }
+	            local update_lines = segment:pre_render(context)
+
+	            if segment.line ~= line_buffer_pos then
+	                for index, line in ipairs(segment.lines) do
+	                    line_buffer[line_buffer_pos + index - 1] = line
+	                end
+	            else
+	                for index, line in pairs(update_lines) do
+	                    line_buffer[line_buffer_pos + index - 1] = line
+	                end
+	            end
+
+	            segment.line = line_buffer_pos
 	        end
 
-	        if self.show_ids then
-	            local id_str = "---- seg id: " .. segment.id .. " "
-	            local str = id_str .. string_rep("-", 80 - id_str:len())
-	            insert_line(str)
-	        end
-
-	        segment.p_line = line_buffer_pos
-	        for _, line in ipairs(segment.p_lines) do
-	            insert_line(line)
-	        end
-
-	        if self.show_ids then
-	            insert_line(string_rep("-", 80))
-	        end
-
-	        ::continue::
+	        line_buffer_pos = line_buffer_pos + segment.lines_count
 	    end
 
 	    for line, content in pairs(line_buffer) do
 	        self:jump_to_line(line)
-	        self:write_line(
-	            erase.line(),
-	            content)
+	        self.m_stream:write(erase.line(), content)
+	        self.m_stream:write("\n")
+	        self.m_cursor_pos = self.m_cursor_pos + 1
 	    end
 
 	    if #self.m_segments > 0 then
 	        local last_segment = self.m_segments[#self.m_segments]
-	        self:jump_to_line(last_segment.p_line + last_segment.p_lines_count)
+	        self:jump_to_line(last_segment.line + last_segment.lines_count)
 	    else
 	        self:jump_to_line(1)
 	    end
@@ -1118,194 +1494,11 @@ __bundler__.__files__["src.terminal"] = function()
 
 end
 
-__bundler__.__files__["src.components"] = function()
-	local utils = __bundler__.__loadFile__("utils.utils")
-
-	local colors = __bundler__.__loadFile__("third-party.ansicolors")
-
-	local string_rep = string.rep
-
-	---@class lua-term.components
-	local components = {}
-
-	---------------
-	--- loading ---
-	---------------
-
-	---@class lua-term.components.loading.config.create
-	---@field length integer | nil (default: 40)
-	---@field state_percent integer | nil in percent (default: 0)
-	---
-	---@field color_bg ansicolors.color | nil (default: black)
-	---@field color_fg ansicolors.color | nil (default: magenta)
-
-	---@class lua-term.components.loading.config
-	---@field length integer
-	---
-	---@field color_bg ansicolors.color
-	---@field color_fg ansicolors.color
-
-	---@class lua-term.components.loading
-	---@field id string
-	---@field state_percent integer
-	---
-	---@field config lua-term.components.loading.config
-	---
-	---@field private m_segment lua-term.segment
-	local loading = {}
-	components.loading = loading
-
-	---@param id string
-	---@param parent lua-term.parent
-	---@param config lua-term.components.loading.config.create | nil
-	---@return lua-term.components.loading
-	function loading.new(id, parent, config)
-	    config = config or {}
-	    config.color_bg = config.color_bg or colors.onblack
-	    config.color_fg = config.color_fg or colors.onmagenta
-	    config.length = config.length or 40
-
-	    ---@type lua-term.components.loading
-	    local instance = setmetatable({
-	        id = id,
-	        state_percent = config.state_percent or 0,
-
-	        config = config,
-	    }, { __index = loading })
-	    instance.m_segment = parent:create_segment(id, function()
-	        return instance:render()
-	    end)
-
-	    config.state_percent = nil
-
-	    return instance
-	end
-
-	---@return string
-	function loading:render()
-	    local mark_tiles = math.floor(self.config.length * self.state_percent / 100)
-	    return self.config.color_fg(string_rep(" ", mark_tiles)) .. self.config.color_bg(string_rep(" ", self.config.length - mark_tiles))
-	end
-
-	---@param state_percent integer | nil
-	---@param update boolean | nil
-	function loading:changed(state_percent, update)
-	    if state_percent then
-	        self.state_percent = state_percent
-	    end
-
-	    self.m_segment:changed(update or true)
-	end
-
-	---@param state_percent integer
-	---@param update boolean | nil
-	function loading:changed_relativ(state_percent, update)
-	    self.state_percent = self.state_percent + state_percent
-	    self.m_segment:changed(update or true)
-	end
-
-	---@param update boolean | nil
-	function loading:remove(update)
-	    self.m_segment:remove(update)
-	end
-
-	----------------
-	--- throbber ---
-	----------------
-
-	---@class lua-term.components.throbber.config.create
-	---@field space integer | nil (default: 2)
-	---
-	---@field color_bg ansicolors.color | nil (default: transparent)
-	---@field color_fg ansicolors.color | nil (default: magenta)
-
-	---@class lua-term.components.throbber.config
-	---@field space integer
-	---
-	---@field color_bg ansicolors.color
-	---@field color_fg ansicolors.color
-
-	---@class lua-term.components.throbber
-	---@field id string
-	---
-	---@field config lua-term.components.throbber.config
-	---
-	---@field private m_rotate_on_every_update boolean
-	---
-	---@field private m_state integer
-	---
-	---@field private m_segment lua-term.segment
-	local throbber = {}
-	components.throbber = throbber
-
-	---@param id string
-	---@param parent lua-term.parent
-	---@param config lua-term.components.throbber.config.create | nil
-	---@return lua-term.components.throbber
-	function throbber.new(id, parent, config)
-	    config = config or {}
-	    config.space = config.space or 2
-	    config.color_bg = config.color_bg or colors.reset
-	    config.color_fg = config.color_fg or colors.magenta
-
-	    ---@type lua-term.components.throbber
-	    local instance = setmetatable({
-	        id = id,
-	        m_state = 0,
-
-	        m_rotate_on_every_update = false,
-
-	        config = config
-	    }, { __index = throbber })
-	    instance.m_segment = parent:create_segment(id, function()
-	        return instance:render()
-	    end)
-
-	    return instance
-	end
-
-	function throbber:render()
-	    self.m_state = self.m_state + 1
-	    if self.m_state > 3 then
-	        self.m_state = 0
-	    end
-
-	    local state_str
-	    if self.m_state == 0 then
-	        state_str = "\\"
-	    elseif self.m_state == 1 then
-	        state_str = "|"
-	    elseif self.m_state == 2 then
-	        state_str = "/"
-	    elseif self.m_state == 3 then
-	        state_str = "-"
-	    end
-
-	    if self.m_rotate_on_every_update then
-	        self.m_segment:changed()
-	    end
-	    return string_rep(" ", self.config.space) .. self.config.color_bg(self.config.color_fg(state_str))
-	end
-
-	function throbber:rotate()
-	    self.m_segment:changed(true)
-	end
-
-	---@param value boolean | nil
-	function throbber:rotate_on_every_update(value)
-	    self.m_rotate_on_every_update = utils.value.default(value, true)
-	end
-
-	---@param update boolean | nil
-	function throbber:remove(update)
-	    self.m_segment:remove(update)
-	end
-
-	return components
-
-end
-
 __bundler__.__files__["__main__"] = function()
+	--- meta files
+	__bundler__.__loadFile__("src.segment.interface")
+	__bundler__.__loadFile__("src.segment.parent")
+
 	---@class lua-term
 	---@field colors ansicolors
 	---
@@ -1315,7 +1508,7 @@ __bundler__.__files__["__main__"] = function()
 	    colors = __bundler__.__loadFile__("third-party.ansicolors"),
 
 	    terminal = __bundler__.__loadFile__("src.terminal"),
-	    components = __bundler__.__loadFile__("src.components")
+	    components = __bundler__.__loadFile__("src.components.init")
 	}
 
 	return term

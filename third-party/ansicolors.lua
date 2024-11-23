@@ -39,8 +39,8 @@ function color:__tostring()
 end
 
 ---@private
-function color:__concat(other)
-    return tostring(self) .. tostring(other)
+function color.__concat(left, right)
+    return tostring(left) .. tostring(right)
 end
 
 ---@private
@@ -55,6 +55,7 @@ local function makecolor(value)
 end
 
 -- attributes
+
 ansicolors.reset = makecolor("0")
 ansicolors.clear = makecolor("0")
 ansicolors.default = makecolor("0")
@@ -67,6 +68,7 @@ ansicolors.inverted = makecolor("7")
 ansicolors.hidden = makecolor("8")
 
 -- foreground
+
 ansicolors.black = makecolor("30")
 ansicolors.red = makecolor("31")
 ansicolors.green = makecolor("32")
@@ -85,6 +87,7 @@ ansicolors.foreground_extended = function(color_code)
 end
 
 -- background
+
 ansicolors.onblack = makecolor("40")
 ansicolors.onred = makecolor("41")
 ansicolors.ongreen = makecolor("42")
@@ -101,5 +104,20 @@ ansicolors.background_extended = function(color_code)
 
     return makecolor("48;5;" .. tostring(color_code))
 end
+
+-- transparent
+
+---@type ansicolors.color
+ansicolors.transparent = setmetatable({}, {
+    __tostring = function()
+        return ""
+    end,
+    __concat = function(left, right)
+        return tostring(left) .. tostring(right)
+    end,
+    __call = function(self, s)
+        return s
+    end
+})
 
 return ansicolors
