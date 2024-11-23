@@ -12,12 +12,11 @@ local entry_class = require("src.segment.entry")
 local group_class = {}
 
 ---@param id string
----@param childs lua-term.segment_entry[] | nil
 ---@param parent lua-term.segment_parent
 ---@return lua-term.components.group
-function group_class.new(id, childs, parent)
+function group_class.new(id, parent)
     local instance = setmetatable({
-        m_childs = childs or {},
+        m_childs = {},
         m_requested_update = false,
 
         m_parent = parent,
