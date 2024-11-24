@@ -1045,7 +1045,6 @@ __bundler__.__files__["src.components.group"] = function()
 	---@return integer lines
 	function group_class:render(context)
 	    self.m_requested_update = false
-
 	    if #self.m_childs == 0 then
 	        return {}, 0
 	    end
