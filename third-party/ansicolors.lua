@@ -20,6 +20,7 @@
 
 -- Modified
 
+local utils = require("misc.utils")
 local tostring = tostring
 local setmetatable = setmetatable
 local schar = string.char
@@ -79,11 +80,17 @@ ansicolors.cyan = makecolor("36")
 ansicolors.white = makecolor("37")
 ---@param color_code integer
 ansicolors.foreground_extended = function(color_code)
-    if color_code < 0 or color_code > 255 then
-        return ansicolors.clear
-    end
-
+    color_code = utils.value.clamp(color_code, 0, 255)
     return makecolor("38;5;" .. tostring(color_code))
+end
+---@param red integer
+---@param green integer
+---@param blue integer
+ansicolors.foreground_24bit = function(red, green, blue)
+    red = utils.value.clamp(red, 0, 255)
+    green = utils.value.clamp(green, 0, 255)
+    blue = utils.value.clamp(blue, 0, 255)
+    return makecolor(("38;2;%s;%s;%s"):format(red, green, blue))
 end
 
 -- background
@@ -98,11 +105,17 @@ ansicolors.oncyan = makecolor("46")
 ansicolors.onwhite = makecolor("47")
 ---@param color_code integer
 ansicolors.background_extended = function(color_code)
-    if color_code < 0 or color_code > 255 then
-        return ansicolors.clear
-    end
-
+    color_code = utils.value.clamp(color_code, 0, 255)
     return makecolor("48;5;" .. tostring(color_code))
+end
+---@param red integer
+---@param green integer
+---@param blue integer
+ansicolors.background_24bit = function(red, green, blue)
+    red = utils.value.clamp(red, 0, 255)
+    green = utils.value.clamp(green, 0, 255)
+    blue = utils.value.clamp(blue, 0, 255)
+    return makecolor(("48;2;%s;%s;%s"):format(red, green, blue))
 end
 
 -- transparent
