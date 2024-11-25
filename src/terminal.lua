@@ -3,6 +3,7 @@ local erase = require("src.erase")
 
 local pairs = pairs
 local math_abs = math.abs
+local string_rep = string.rep
 local io_type = io.type
 local table_insert = table.insert
 local table_remove = table.remove
@@ -14,7 +15,8 @@ local components = require("src.components.init")
 ---@field show_ids boolean
 
 ---@class lua-term.terminal : lua-term.segment_parent
----@field show_ids boolean
+---@field show_ids boolean | nil
+---@field show_lines boolean | nil
 ---
 ---@field private m_stream file*
 ---
@@ -32,8 +34,6 @@ function terminal.new(stream)
     end
 
     return setmetatable({
-        show_ids = false,
-
         m_stream = stream,
         m_segments = {},
         m_cursor_pos = 1,
@@ -70,6 +70,11 @@ function terminal:remove_child(child)
             table_remove(self.m_segments, index)
         end
     end
+end
+
+function terminal:clear()
+    self.m_segments = {}
+    self:update()
 end
 
 ---@private
@@ -126,8 +131,14 @@ function terminal:update()
 
     for line, content in pairs(line_buffer) do
         self:jump_to_line(line)
-        self.m_stream:write(erase.line(), content)
-        self.m_stream:write("\n")
+
+        self.m_stream:write(erase.line())
+        if self.show_lines then
+            local line_str = tostring(line)
+            local space = 3 - line_str:len()
+            self.m_stream:write(line_str, string_rep(" ", space), "|")
+        end
+        self.m_stream:write(content, "\n")
         self.m_cursor_pos = self.m_cursor_pos + 1
     end
 

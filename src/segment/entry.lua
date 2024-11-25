@@ -1,3 +1,4 @@
+local utils = require("misc.utils")
 local string_rep = string.rep
 local table_insert = table.insert
 local table_remove = table.remove
@@ -56,8 +57,16 @@ function segment_entry_class:pre_render(context)
 
         self.m_showing_id = context.show_ids
     elseif self.m_showing_id then
-        for i = #buffer, 0, -1 do
-            buffer[i + 1] = buffer[i]
+        lines = lines + 2
+
+        local temp = {}
+        for index, line in pairs(buffer) do
+            temp[index + 1] = line
+        end
+        buffer = temp
+
+        if self.lines_count ~= lines then
+            buffer[lines] = self.lines[self.lines_count]
         end
     end
 

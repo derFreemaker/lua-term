@@ -826,6 +826,7 @@ __bundler__.__files__["src.erase"] = function()
 end
 
 __bundler__.__files__["src.segment.entry"] = function()
+	local utils = __bundler__.__loadFile__("misc.utils")
 	local string_rep = string.rep
 	local table_insert = table.insert
 	local table_remove = table.remove
@@ -884,8 +885,16 @@ __bundler__.__files__["src.segment.entry"] = function()
 
 	        self.m_showing_id = context.show_ids
 	    elseif self.m_showing_id then
-	        for i = #buffer, 0, -1 do
-	            buffer[i + 1] = buffer[i]
+	        lines = lines + 2
+
+	        local temp = {}
+	        for index, line in pairs(buffer) do
+	            temp[index + 1] = line
+	        end
+	        buffer = temp
+
+	        if self.lines_count ~= lines then
+	            buffer[lines] = self.lines[self.lines_count]
 	        end
 	    end
 
@@ -1258,7 +1267,14 @@ __bundler__.__files__["src.components.line"] = function()
 	        child_entry:pre_render(context)
 
 	        ::continue::
-	        table_insert(line_buffer, child_entry.lines[1])
+
+	        for _, line in ipairs(child_entry.lines) do
+	            table_insert(line_buffer, line)
+	        end
+	    end
+
+	    if context.show_ids then
+	        return line_buffer, #line_buffer
 	    end
 
 	    local line = 0
@@ -1445,6 +1461,7 @@ end
 __bundler__.__files__["src.components.stream"] = function()
 	local utils = __bundler__.__loadFile__("misc.utils")
 	local table_insert = table.insert
+	local table_concat = table.concat
 
 	---@class lua-term.components.stream.config
 	---@field before string | nil
@@ -1455,7 +1472,6 @@ __bundler__.__files__["src.components.stream"] = function()
 	---
 	---@field private m_stream file*
 	---@field private m_closed boolean
-	---@field private m_read_func fun() : string | nil
 	---
 	---@field private m_buffer string[]
 	---@field private m_line_count integer
@@ -1475,7 +1491,6 @@ __bundler__.__files__["src.components.stream"] = function()
 
 	        m_stream = stream,
 	        m_closed = false,
-	        m_read_func = stream:lines("l"),
 
 	        m_buffer = {},
 	        m_line_count = 0,
@@ -1513,15 +1528,41 @@ __bundler__.__files__["src.components.stream"] = function()
 	    return self.m_requested_update
 	end
 
+	---@private
+	function stream_class:read()
+	    local char = self.m_stream:read(1)
+	    if not char then
+	        self.m_closed = true
+	    end
+	    return char
+	end
+
 	---@param update boolean | nil
 	function stream_class:read_line(update)
-	    local line = self.m_read_func()
-	    if not line then
-	        self.m_closed = true
-	    else
-	        self.m_line_count = self.m_line_count + 1
-	        self.m_buffer[self.m_line_count] = line
+	    local index = 0
+	    local line = {}
+	    while true do
+	        local char = self:read()
+	        if not char then
+	            break
+	        end
+
+	        if char == "\n" then
+	            break
+	        elseif char == "\r" then
+	            index = 0
+	        end
+
+	        index = index + 1
+	        line[index] = char
 	    end
+
+	    if #line == 0 then
+	        return
+	    end
+
+	    self.m_line_count = self.m_line_count + 1
+	    self.m_buffer[self.m_line_count] = table_concat(line)
 
 	    if utils.value.default(update, true) then
 	        self:update()
@@ -1575,6 +1616,7 @@ __bundler__.__files__["src.terminal"] = function()
 
 	local pairs = pairs
 	local math_abs = math.abs
+	local string_rep = string.rep
 	local io_type = io.type
 	local table_insert = table.insert
 	local table_remove = table.remove
@@ -1586,7 +1628,8 @@ __bundler__.__files__["src.terminal"] = function()
 	---@field show_ids boolean
 
 	---@class lua-term.terminal : lua-term.segment_parent
-	---@field show_ids boolean
+	---@field show_ids boolean | nil
+	---@field show_lines boolean | nil
 	---
 	---@field private m_stream file*
 	---
@@ -1604,8 +1647,6 @@ __bundler__.__files__["src.terminal"] = function()
 	    end
 
 	    return setmetatable({
-	        show_ids = false,
-
 	        m_stream = stream,
 	        m_segments = {},
 	        m_cursor_pos = 1,
@@ -1642,6 +1683,11 @@ __bundler__.__files__["src.terminal"] = function()
 	            table_remove(self.m_segments, index)
 	        end
 	    end
+	end
+
+	function terminal:clear()
+	    self.m_segments = {}
+	    self:update()
 	end
 
 	---@private
@@ -1698,8 +1744,14 @@ __bundler__.__files__["src.terminal"] = function()
 
 	    for line, content in pairs(line_buffer) do
 	        self:jump_to_line(line)
-	        self.m_stream:write(erase.line(), content)
-	        self.m_stream:write("\n")
+
+	        self.m_stream:write(erase.line())
+	        if self.show_lines then
+	            local line_str = tostring(line)
+	            local space = 3 - line_str:len()
+	            self.m_stream:write(line_str, string_rep(" ", space), "|")
+	        end
+	        self.m_stream:write(content, "\n")
 	        self.m_cursor_pos = self.m_cursor_pos + 1
 	    end
 

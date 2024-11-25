@@ -40,7 +40,14 @@ function line_class:render(context)
         child_entry:pre_render(context)
 
         ::continue::
-        table_insert(line_buffer, child_entry.lines[1])
+
+        for _, line in ipairs(child_entry.lines) do
+            table_insert(line_buffer, line)
+        end
+    end
+
+    if context.show_ids then
+        return line_buffer, #line_buffer
     end
 
     local line = 0

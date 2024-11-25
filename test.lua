@@ -10,9 +10,10 @@ package.path = "./?.lua;" .. package.path
 local term = require("src.init")
 
 local terminal = term.terminal.stdout()
+-- terminal.show_ids = true
+-- terminal.show_lines = true
 
 local body = term.components.group.new("body", terminal)
-local footer = term.components.group.new("footer", terminal)
 local satusbar = term.components.line.new("statusbar", terminal)
 
 local test = term.components.loading.new("test loading", satusbar)
@@ -27,15 +28,14 @@ for i = 1, 6 do
     })
     for j = 1, 6 do
         sleep(0.1)
-        test2:changed(100 / 6 * j, true)
+        test2:changed(100 / 6 * j)
     end
     test2:remove()
 
     sleep(0.2)
-    test:changed(100 / 6 * i, true)
+    test:changed(100 / 6 * i)
 end
-footer:remove(false)
-satusbar:remove(false)
-terminal:update()
+
+terminal:clear()
 
 print("## END ##")
