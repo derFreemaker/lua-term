@@ -13,9 +13,10 @@ local terminal = term.terminal.stdout()
 
 local body = term.components.group.new("body", terminal)
 local footer = term.components.group.new("footer", terminal)
+local satusbar = term.components.line.new("statusbar", terminal)
 
-local test = term.components.loading.new("test loading", footer)
-local throb = term.components.throbber.new("test throbber", footer)
+local test = term.components.loading.new("test loading", satusbar)
+local throb = term.components.throbber.new("test throbber", satusbar)
 throb:rotate_on_every_update()
 
 terminal:update()
@@ -34,6 +35,7 @@ for i = 1, 6 do
     test:changed(100 / 6 * i, true)
 end
 footer:remove(false)
+satusbar:remove(false)
 terminal:update()
 
 print("## END ##")

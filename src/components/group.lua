@@ -106,6 +106,7 @@ function group_class:remove_child(child)
     for index, entry in pairs(self.m_childs) do
         if entry:has_segment(child) then
             table_remove(self.m_childs, index)
+            break
         end
     end
 
