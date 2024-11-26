@@ -9,18 +9,18 @@ local state = {
 ---@field private m_cursor_y integer
 ---@field private m_screen (string[]|nil)[]
 ---@field private m_state screen.state
----@field private m_read_char fun() : string | nil
+---@field private m_read_char_func fun() : string | nil
 ---@field private m_buffer string | nil
 local _screen = {}
 
----@param read_func fun() : string | nil
-function _screen.new(read_func)
+---@param read_char_func fun() : string | nil
+function _screen.new(read_char_func)
     return setmetatable({
         m_cursor_x = 1,
         m_cursor_y = 1,
         m_screen = {},
 
-        m_read_func = read_func,
+        m_read_char_func = read_char_func,
         m_state = state.Normal
     }, { __index = _screen })
 end
@@ -43,6 +43,7 @@ function _screen:write_char(char)
     self.m_cursor_x = self.m_cursor_x + 1
 end
 
+---@private
 ---@param seq string
 ---@return integer[]
 local function parse_ansi_escape_code_params(seq)
@@ -54,18 +55,9 @@ local function parse_ansi_escape_code_params(seq)
 end
 
 ---@private
----@param buffer string
----@return boolean
-function _screen:execute_ansi_escape_code(buffer)
-    -- Found an ANSI escape sequence
-    local end_pos = buffer:find("[A-Za-z]", 2)
-    if not end_pos then
-        return false
-    end
-
-    local esc_seq = buffer:sub(2, end_pos)
-    local command = esc_seq:sub(-1)                                  -- Get the command character
-    local params = parse_ansi_escape_code_params(esc_seq:sub(1, -2)) -- Extract parameters
+---@param command string
+function _screen:execute_ansi_escape_code(command)
+    local params = parse_ansi_escape_code_params(self.m_buffer:sub(3, -1)) -- Extract parameters
 
     -- Process the command
     if command == "A" then
@@ -98,31 +90,61 @@ function _screen:execute_ansi_escape_code(buffer)
             self.m_screen[self.m_cursor_y][x] = nil
         end
     else
-        return false
+        self:write(self.m_buffer)
     end
+
+    self.m_state = state.Normal
+    self.m_buffer = nil
 end
 
+---@private
 ---@param buffer string
 function _screen:write(buffer)
-    
+    for i = 1, #buffer do
+        local char = buffer:sub(i, i)
+
+        if not self.m_screen[self.m_cursor_y] then
+            self.m_screen[self.m_cursor_y] = {}
+        end
+
+        self.m_screen[self.m_cursor_y][self.m_cursor_x] = char
+        self.m_cursor_x = self.m_cursor_x + 1
+    end
 end
 
 ---@return boolean
 function _screen:process_char()
-    local char = self.m_read_char()
+    local char = self.m_read_char_func()
     if not char then
         return false
     end
 
     if char == "\27" then
+        self.m_buffer = char
         self.m_state = state.AnsiEscapeCode
-    elseif self.m_state == state.AnsiEscapeCode and char ~= "[" then
+        return true
+    elseif char == "\r" then
+        self.m_cursor_x = 1
+        return true
+    elseif char == "\n" then
+        self.m_cursor_x = 1
+        self.m_cursor_y = self.m_cursor_y + 1
+        return true
+    elseif self.m_state == state.Normal then
+        self:write(char)
+        return true
+    end
+
+    if self.m_state == state.AnsiEscapeCode and #self.m_buffer == 1 and char ~= "[" then
+        self.m_buffer = self.m_buffer .. char
         self.m_state = state.Normal
     end
 
     if self.m_state == state.Normal and self.m_buffer then
         self:write(self.m_buffer)
         self.m_buffer = nil
+    elseif char:find("[A-Za-z]") then
+        self:execute_ansi_escape_code(char)
     elseif self.m_state == state.AnsiEscapeCode then
         self.m_buffer = self.m_buffer .. char
     end
@@ -130,49 +152,33 @@ function _screen:process_char()
     return true
 end
 
----@param buffer string
----@param x integer | nil
----@param y integer | nil
----@param screen string[][] | nil
-local function execute_ansi_escape(buffer, x, y, screen)
-    local cursor_x, cursor_y = x or 1, y or 1 -- Initialize cursor position (1-based indexing)
-    screen = screen or {}                     -- Terminal buffer (2D array for content)
-
-    local i = 1
-    while i <= #buffer do
-        local char = buffer:sub(i, i)
-
-        if char == "\27" and buffer:sub(i + 1, i + 1) == "[" then
-
-        elseif char == "\r" then
-            -- Handle carriage return
-            cursor_x = 1
-        elseif char == "\n" then
-            -- Handle newline (move to the next line, cursor at beginning)
-            cursor_x = 1
-            cursor_y = cursor_y + 1
-        else
-            -- Regular character, write to the screen
-            write_char(char)
-        end
-
-        i = i + 1
-    end
-
-    -- Convert screen to string format for easier debugging (optional)
-    local function screen_to_string()
-        local result = {}
-        for y, row in pairs(screen) do
-            local line = {}
-            for x = 1, #row do
-                line[x] = row[x] or " "
+---@return string
+function _screen:to_string()
+    local pos_y = 0
+    local result = {}
+    for y, row in pairs(self.m_screen) do
+        while pos_y < y do
+            pos_y = pos_y + 1
+            if not result[pos_y] then
+                result[pos_y] = ""
             end
-            result[y] = table.concat(line)
         end
-        return table.concat(result, "\n")
-    end
 
-    return cursor_x, cursor_y, screen, screen_to_string()
+        local pos_x = 0
+        local line = {}
+        for x, char in pairs(row) do
+            while pos_x < x do
+                pos_x = pos_x + 1
+                if not line[pos_x] then
+                    line[pos_x] = " "
+                end
+            end
+
+            line[x] = char or " "
+        end
+        result[y] = table.concat(line)
+    end
+    return table.concat(result, "\n")
 end
 
-return execute_ansi_escape
+return _screen

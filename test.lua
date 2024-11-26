@@ -38,7 +38,7 @@ local terminal = term.terminal.stdout()
 
 -- terminal:clear()
 
-local screen_func = require("screen")
+local _screen = require("screen")
 
 local install = "winget install --disable-interactivity --accept-source-agreements --accept-package-agreements --id \"9P8LTPGCBZXD\" -e"
 local uninstall = "winget uninstall --disable-interactivity --id \"9P8LTPGCBZXD\" -e"
@@ -48,13 +48,18 @@ if not handle then
     error(err_msg)
 end
 
-local text_seg = term.components.segment.new("text", function ()
-    return screen_str()
-end, terminal)
+local screen = _screen.new(function()
+    return handle:read(1)
+end)
 
-while true do
-    local char = handle:read(1)
+-- local text_seg = term.components.segment.new("text", function ()
+--     return screen_str()
+-- end, terminal)
 
+while screen:process_char() do
+    print("-- start")
+    screen:to_string()
+    print("-- end")
 end
 
 handle:close()
