@@ -11,7 +11,7 @@
 ---@field stream lua-term.components.stream
 local components = {
     segment = require("src.segment.init"),
-    
+
     text = require("src.components.text"),
     loading = require("src.components.loading"),
     throbber = require("src.components.throbber"),

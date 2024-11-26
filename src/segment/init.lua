@@ -44,7 +44,6 @@ function segment_class:render(context)
             debug_traceback(pre_render_thread, str_or_err_msg),
             string_rep("-", 80))
     end
-    coroutine.close(pre_render_thread)
 
     if not str_or_err_msg then
         return {}, 0

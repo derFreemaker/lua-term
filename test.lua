@@ -38,30 +38,22 @@ local terminal = term.terminal.stdout()
 
 -- terminal:clear()
 
-local _screen = require("screen")
-
 local install = "winget install --disable-interactivity --accept-source-agreements --accept-package-agreements --id \"9P8LTPGCBZXD\" -e"
 local uninstall = "winget uninstall --disable-interactivity --id \"9P8LTPGCBZXD\" -e"
 
-local handle, err_msg = io.popen(install, "rb")
+local handle, err_msg = io.popen(install, "r")
 if not handle then
     error(err_msg)
 end
 
-local screen = _screen.new(function()
-    return handle:read(1)
-end)
+local stream = term.components.stream.new("<stream>", terminal, handle, {
+    before = term.colors.foreground_24bit(100, 100, 100) .. ">  ",
+    after = term.colors.reset
+})
+stream:read_all()
 
--- local text_seg = term.components.segment.new("text", function ()
---     return screen_str()
--- end, terminal)
-
-while screen:process_char() do
-    print("-- start")
-    screen:to_string()
-    print("-- end")
-end
-
+sleep(2)
+stream:remove()
 handle:close()
 
 print("## END ##")

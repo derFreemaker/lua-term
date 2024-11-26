@@ -1,13 +1,12 @@
 {
     "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
-    "runtime.version": "Lua 5.4",
+    "runtime.version": "Lua 5.3",
+    "runtime.pathStrict": true,
     "workspace.ignoreDir": [
         ".vscode",
         "term.lua"
     ],
     "runtime.path": [
         "?.lua"
-    ],
-    "runtime.pathStrict": true
+    ]
 }
-  

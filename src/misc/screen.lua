@@ -1,41 +1,83 @@
----@enum screen.state
+local table_concat = table.concat
+
+---@enum lua-term.screen.state
 local state = {
     Normal = 0,
     AnsiEscapeCode = 1
 }
 
----@class screen
+---@class lua-term.screen
+---@field private m_read_char_func fun() : string | nil
+---
 ---@field private m_cursor_x integer
 ---@field private m_cursor_y integer
 ---@field private m_screen (string[]|nil)[]
----@field private m_state screen.state
----@field private m_read_char_func fun() : string | nil
+---@field private m_changed table<integer, true>
+---
+---@field private m_state lua-term.screen.state
 ---@field private m_buffer string | nil
-local _screen = {}
+local screen_class = {}
 
 ---@param read_char_func fun() : string | nil
-function _screen.new(read_char_func)
+function screen_class.new(read_char_func)
     return setmetatable({
+        m_read_char_func = read_char_func,
+
         m_cursor_x = 1,
         m_cursor_y = 1,
         m_screen = {},
+        m_changed = {},
 
-        m_read_char_func = read_char_func,
         m_state = state.Normal
-    }, { __index = _screen })
+    }, { __index = screen_class })
+end
+
+function screen_class:get_height()
+    return #self.m_screen
+end
+
+---@return (string[]|nil)[]
+function screen_class:get_screen()
+    return self.m_screen
+end
+
+---@return table<integer, string>
+function screen_class:get_changed()
+    ---@type table<integer, string>
+    local buffer = {}
+    for line in pairs(self.m_changed) do
+        local line_buffer = {}
+        for x, char in pairs(self.m_screen[line]) do
+            local pos_x = 1
+            while pos_x < x do
+                if not line_buffer[pos_x] then
+                    line_buffer[pos_x] = " "
+                end
+                pos_x = pos_x + 1
+            end
+
+            line_buffer[x] = char
+        end
+        buffer[line] = table_concat(line_buffer)
+    end
+    return buffer
+end
+
+function screen_class:clear_changed()
+    self.m_changed = {}
 end
 
 ---@private
 ---@param dx integer
 ---@param dy integer
-function _screen:move_cursor(dx, dy)
+function screen_class:move_cursor(dx, dy)
     self.m_cursor_x = math.max(1, self.m_cursor_x + dx)
     self.m_cursor_y = math.max(1, self.m_cursor_y + dy)
 end
 
 ---@private
 ---@param char string
-function _screen:write_char(char)
+function screen_class:write_char(char)
     if not self.m_screen[self.m_cursor_y] then
         self.m_screen[self.m_cursor_y] = {}
     end
@@ -56,7 +98,7 @@ end
 
 ---@private
 ---@param command string
-function _screen:execute_ansi_escape_code(command)
+function screen_class:execute_ansi_escape_code(command)
     local params = parse_ansi_escape_code_params(self.m_buffer:sub(3, -1)) -- Extract parameters
 
     -- Process the command
@@ -99,7 +141,7 @@ end
 
 ---@private
 ---@param buffer string
-function _screen:write(buffer)
+function screen_class:write(buffer)
     for i = 1, #buffer do
         local char = buffer:sub(i, i)
 
@@ -109,30 +151,32 @@ function _screen:write(buffer)
 
         self.m_screen[self.m_cursor_y][self.m_cursor_x] = char
         self.m_cursor_x = self.m_cursor_x + 1
+
+        self.m_changed[self.m_cursor_y] = true
     end
 end
 
----@return boolean
-function _screen:process_char()
+---@return string | nil char
+function screen_class:process_char()
     local char = self.m_read_char_func()
     if not char then
-        return false
+        return nil
     end
 
     if char == "\27" then
         self.m_buffer = char
         self.m_state = state.AnsiEscapeCode
-        return true
+        return char
     elseif char == "\r" then
         self.m_cursor_x = 1
-        return true
+        return char
     elseif char == "\n" then
         self.m_cursor_x = 1
         self.m_cursor_y = self.m_cursor_y + 1
-        return true
+        return char
     elseif self.m_state == state.Normal then
         self:write(char)
-        return true
+        return char
     end
 
     if self.m_state == state.AnsiEscapeCode and #self.m_buffer == 1 and char ~= "[" then
@@ -149,11 +193,11 @@ function _screen:process_char()
         self.m_buffer = self.m_buffer .. char
     end
 
-    return true
+    return char
 end
 
 ---@return string
-function _screen:to_string()
+function screen_class:to_string()
     local pos_y = 0
     local result = {}
     for y, row in pairs(self.m_screen) do
@@ -174,11 +218,11 @@ function _screen:to_string()
                 end
             end
 
-            line[x] = char or " "
+            line[x] = char
         end
         result[y] = table.concat(line)
     end
     return table.concat(result, "\n")
 end
 
-return _screen
+return screen_class
