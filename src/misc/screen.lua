@@ -6,12 +6,16 @@ local state = {
     AnsiEscapeCode = 1
 }
 
+---@class lua-term.screen.line
+---@field [integer] string
+---@field length integer
+
 ---@class lua-term.screen
 ---@field private m_read_char_func fun() : string | nil
 ---
 ---@field private m_cursor_x integer
 ---@field private m_cursor_y integer
----@field private m_screen (string[]|nil)[]
+---@field private m_screen (lua-term.screen.line|nil)[]
 ---@field private m_changed table<integer, true>
 ---
 ---@field private m_state lua-term.screen.state
@@ -46,19 +50,7 @@ function screen_class:get_changed()
     ---@type table<integer, string>
     local buffer = {}
     for line in pairs(self.m_changed) do
-        local line_buffer = {}
-        for x, char in pairs(self.m_screen[line]) do
-            local pos_x = 1
-            while pos_x < x do
-                if not line_buffer[pos_x] then
-                    line_buffer[pos_x] = " "
-                end
-                pos_x = pos_x + 1
-            end
-
-            line_buffer[x] = char
-        end
-        buffer[line] = table_concat(line_buffer)
+        buffer[line] = table_concat(self.m_screen[line])
     end
     return buffer
 end
@@ -73,16 +65,6 @@ end
 function screen_class:move_cursor(dx, dy)
     self.m_cursor_x = math.max(1, self.m_cursor_x + dx)
     self.m_cursor_y = math.max(1, self.m_cursor_y + dy)
-end
-
----@private
----@param char string
-function screen_class:write_char(char)
-    if not self.m_screen[self.m_cursor_y] then
-        self.m_screen[self.m_cursor_y] = {}
-    end
-    self.m_screen[self.m_cursor_y][self.m_cursor_x] = char
-    self.m_cursor_x = self.m_cursor_x + 1
 end
 
 ---@private
@@ -126,11 +108,13 @@ function screen_class:execute_ansi_escape_code(command)
     elseif command == "K" then
         -- Erase in Line (CSI n K)
         if not self.m_screen[self.m_cursor_y] then
-            self.m_screen[self.m_cursor_y] = {}
+            self.m_screen[self.m_cursor_y] = { length = 0 }
         end
-        for x = self.m_cursor_x, #self.m_screen[self.m_cursor_y] do
+
+        for x = self.m_cursor_x, self.m_screen[self.m_cursor_y].length do
             self.m_screen[self.m_cursor_y][x] = nil
         end
+        self.m_screen[self.m_cursor_y].length = self.m_cursor_x
     else
         self:write(self.m_buffer)
     end
@@ -145,11 +129,22 @@ function screen_class:write(buffer)
     for i = 1, #buffer do
         local char = buffer:sub(i, i)
 
-        if not self.m_screen[self.m_cursor_y] then
-            self.m_screen[self.m_cursor_y] = {}
+        for y = 1, self.m_cursor_y do
+            local line = self.m_screen[self.m_cursor_y]
+            if not line then
+                line = { length = 1 }
+                self.m_screen[self.m_cursor_y] = line
+            end
+
+            for x = line.length, self.m_cursor_x - 1 do
+                if not line[x] then
+                    line[x] = " "
+                end
+            end
         end
 
         self.m_screen[self.m_cursor_y][self.m_cursor_x] = char
+        self.m_screen[self.m_cursor_y].length = self.m_cursor_x
         self.m_cursor_x = self.m_cursor_x + 1
 
         self.m_changed[self.m_cursor_y] = true
