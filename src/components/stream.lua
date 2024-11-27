@@ -2,9 +2,11 @@ local utils = require("misc.utils")
 local table_insert = table.insert
 local table_concat = table.concat
 
+local screen_class = require("src.misc.screen")
+
 ---@class lua-term.components.stream.config
----@field before string | nil
----@field after string | nil
+---@field before string | ansicolors.color | nil
+---@field after string | ansicolors.color | nil
 
 ---@class lua-term.components.stream : lua-term.segment_interface
 ---@field config lua-term.components.stream.config
@@ -12,8 +14,7 @@ local table_concat = table.concat
 ---@field private m_stream file*
 ---@field private m_closed boolean
 ---
----@field private m_buffer string[]
----@field private m_line_count integer
+---@field private m_screen lua-term.screen
 ---
 ---@field private m_parent lua-term.segment_parent
 ---@field private m_requested_update boolean
@@ -31,8 +32,9 @@ function stream_class.new(id, parent, stream, config)
         m_stream = stream,
         m_closed = false,
 
-        m_buffer = {},
-        m_line_count = 0,
+        m_screen = screen_class.new(function()
+            return stream:read(1)
+        end),
 
         m_parent = parent,
         m_requested_update = true,
@@ -54,13 +56,15 @@ end
 ---@return table<integer, string> update_buffer
 ---@return integer lines
 function stream_class:render(context)
-    ---@type string[]
-    local buffer = {}
-    for index, line in ipairs(self.m_buffer) do
-        buffer[index] = ("%s%s%s"):format(self.config.before or "", line, self.config.after or "")
+    local buffer = self.m_screen:get_changed()
+    local height = self.m_screen:get_height()
+    self.m_screen:clear_changed()
+
+    for line, content in pairs(buffer) do
+        buffer[line] = ("%s%s%s"):format(tostring(self.config.before or ""), content, tostring(self.config.after or ""))
     end
 
-    return buffer, self.m_line_count
+    return buffer, height
 end
 
 function stream_class:requested_update()
@@ -68,40 +72,32 @@ function stream_class:requested_update()
 end
 
 ---@private
-function stream_class:read()
-    local char = self.m_stream:read(1)
+function stream_class:read(update)
+    local char = self.m_screen:process_char()
     if not char then
         self.m_closed = true
+        return
     end
+
+    if utils.value.default(update, true) then
+        self:update()
+    end
+
     return char
 end
 
 ---@param update boolean | nil
 function stream_class:read_line(update)
-    local index = 0
-    local line = {}
     while true do
-        local char = self:read()
+        local char = self:read(false)
         if not char then
             break
         end
 
         if char == "\n" then
             break
-        elseif char == "\r" then
-            index = 0
         end
-
-        index = index + 1
-        line[index] = char
     end
-
-    if #line == 0 then
-        return
-    end
-
-    self.m_line_count = self.m_line_count + 1
-    self.m_buffer[self.m_line_count] = table_concat(line)
 
     if utils.value.default(update, true) then
         self:update()
@@ -111,7 +107,7 @@ end
 ---@param update boolean | nil
 function stream_class:read_all(update)
     while not self.m_closed do
-        self:read_line(update)
+        self:read(update)
     end
 end
 
