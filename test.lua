@@ -38,8 +38,8 @@ local terminal = term.terminal.stdout()
 
 -- terminal:clear()
 
-local install = "winget install --disable-interactivity --accept-source-agreements --accept-package-agreements --id \"9P8LTPGCBZXD\" -e"
-local uninstall = "winget uninstall --disable-interactivity --id \"9P8LTPGCBZXD\" -e"
+local install = "winget install --accept-source-agreements --accept-package-agreements --id \"9P8LTPGCBZXD\" -e"
+local uninstall = "winget uninstall --id \"9P8LTPGCBZXD\" -e"
 
 local handle, err_msg = io.popen(install, "r")
 if not handle then
@@ -54,6 +54,8 @@ stream:read_all()
 
 sleep(2)
 stream:remove()
+terminal:close()
+
 handle:close()
 
 print("## END ##")

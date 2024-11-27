@@ -9,7 +9,7 @@ local table_insert = table.insert
 local table_remove = table.remove
 
 local entry_class = require("src.segment.entry")
-local components = require("src.components.init")
+local _text = require("src.components.text")
 
 ---@class lua-term.render_context
 ---@field show_ids boolean
@@ -33,13 +33,12 @@ function terminal.new(stream)
         error("stream is not valid")
     end
 
+    stream:write("\27[?7l")
     return setmetatable({
         m_stream = stream,
         m_segments = {},
         m_cursor_pos = 1,
-    }, {
-        __index = terminal,
-    })
+    }, { __index = terminal })
 end
 
 local stdout_terminal
@@ -53,10 +52,14 @@ function terminal.stdout()
     return stdout_terminal
 end
 
+function terminal:close()
+    self.m_stream:write("\27[?7h")
+end
+
 ---@param ... any
 ---@return lua-term.segment
 function terminal:print(...)
-    return components.text.print(self, ...)
+    return _text.print(self, ...)
 end
 
 function terminal:add_segment(id, segment)
