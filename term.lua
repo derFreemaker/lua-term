@@ -38,10 +38,6 @@
 	                local byte = tonumber(content:sub(i - 1, i), 16)
 	                file:write(string.char(byte))
 	            end
-	            -- for i = 1, #content do
-	                -- local byte = tonumber(content[i], 16)
-	                -- file:write(string.char(byte))
-	            -- end
 	            file:close()
 	            __bundler__.__cache__[module] = { package.loadlib(file_path, "luaopen_" .. module)() }
 	            table.insert(__bundler__.__temp_files__, file_path)
@@ -69,7 +65,6 @@
 	        print("error in bundle loading thread:\n"
 	            .. debug.traceback(loading_thread, items[1]))
 	    end
-	    coroutine.close(loading_thread)
 	    __bundler__.__cleanup__()
 	    return table.unpack(items)
 	end
@@ -184,7 +179,6 @@ __bundler__.__files__["misc.utils"] = function()
 	        print("error in bundle loading thread:\n"
 	            .. debug.traceback(loading_thread, items[1]))
 	    end
-	    coroutine.close(loading_thread)
 	    __bundler__.__cleanup__()
 	    return table.unpack(items)
 	end
@@ -960,7 +954,6 @@ __bundler__.__files__["src.segment.init"] = function()
 	            debug_traceback(pre_render_thread, str_or_err_msg),
 	            string_rep("-", 80))
 	    end
-	    coroutine.close(pre_render_thread)
 
 	    if not str_or_err_msg then
 	        return {}, 0
@@ -1030,6 +1023,169 @@ __bundler__.__files__["src.components.text"] = function()
 	end
 
 	return _text
+
+end
+
+__bundler__.__files__["src.terminal"] = function()
+	local cursor = __bundler__.__loadFile__("src.cursor")
+	local erase = __bundler__.__loadFile__("src.erase")
+
+	local pairs = pairs
+	local math_abs = math.abs
+	local string_rep = string.rep
+	local io_type = io.type
+	local table_insert = table.insert
+	local table_remove = table.remove
+
+	local entry_class = __bundler__.__loadFile__("src.segment.entry")
+	local _text = __bundler__.__loadFile__("src.components.text")
+
+	---@class lua-term.render_context
+	---@field show_ids boolean
+
+	---@class lua-term.terminal : lua-term.segment_parent
+	---@field show_ids boolean | nil
+	---@field show_lines boolean | nil
+	---
+	---@field private m_stream file*
+	---
+	---@field private m_segments lua-term.segment_entry[]
+	---
+	---@field private m_org_print function
+	---@field private m_cursor_pos integer
+	local terminal = {}
+
+	---@param stream file*
+	---@return lua-term.terminal
+	function terminal.new(stream)
+	    if io_type(stream) ~= "file" then
+	        error("stream is not valid")
+	    end
+
+	    stream:write("\27[?7l")
+	    return setmetatable({
+	        m_stream = stream,
+	        m_segments = {},
+	        m_cursor_pos = 1,
+	    }, { __index = terminal })
+	end
+
+	local stdout_terminal
+	---@return lua-term.terminal
+	function terminal.stdout()
+	    if stdout_terminal then
+	        return stdout_terminal
+	    end
+
+	    stdout_terminal = terminal.new(io.stdout)
+	    return stdout_terminal
+	end
+
+	function terminal:close()
+	    self.m_stream:write("\27[?7h")
+	end
+
+	---@param ... any
+	---@return lua-term.segment
+	function terminal:print(...)
+	    return _text.print(self, ...)
+	end
+
+	function terminal:add_segment(id, segment)
+	    local entry = entry_class.new(id, segment)
+	    table_insert(self.m_segments, entry)
+	end
+
+	function terminal:remove_child(child)
+	    for index, entry in ipairs(self.m_segments) do
+	        if entry:has_segment(child) then
+	            table_remove(self.m_segments, index)
+	        end
+	    end
+	end
+
+	function terminal:clear()
+	    self.m_segments = {}
+	    self:update()
+	end
+
+	---@private
+	---@param line integer
+	function terminal:jump_to_line(line)
+	    local jump_lines = line - self.m_cursor_pos
+	    if jump_lines == 0 then
+	        return
+	    end
+
+	    if jump_lines > 0 then
+	        self.m_stream:write(cursor.go_down(jump_lines))
+	    else
+	        self.m_stream:write(cursor.go_up(math_abs(jump_lines)))
+	    end
+	    self.m_cursor_pos = line
+	end
+
+	function terminal:update()
+	    local line_buffer_pos = 1
+	    ---@type table<integer, string>
+	    local line_buffer = {}
+
+	    for _, segment in ipairs(self.m_segments) do
+	        if not self.show_ids and not segment:requested_update() then
+	            if segment.line ~= line_buffer_pos then
+	                for index, line in ipairs(segment.lines) do
+	                    line_buffer[line_buffer_pos + index - 1] = line
+	                end
+
+	                segment.line = line_buffer_pos
+	            end
+	        else
+	            local context = {
+	                show_ids = self.show_ids
+	            }
+	            local update_lines = segment:pre_render(context)
+
+	            if segment.line ~= line_buffer_pos then
+	                for index, line in ipairs(segment.lines) do
+	                    line_buffer[line_buffer_pos + index - 1] = line
+	                end
+	            else
+	                for index, line in pairs(update_lines) do
+	                    line_buffer[line_buffer_pos + index - 1] = line
+	                end
+	            end
+
+	            segment.line = line_buffer_pos
+	        end
+
+	        line_buffer_pos = line_buffer_pos + segment.lines_count
+	    end
+
+	    for line, content in pairs(line_buffer) do
+	        self:jump_to_line(line)
+
+	        self.m_stream:write(erase.line())
+	        if self.show_lines then
+	            local line_str = tostring(line)
+	            local space = 3 - line_str:len()
+	            self.m_stream:write(line_str, string_rep(" ", space), "|")
+	        end
+	        self.m_stream:write(content, "\n")
+	        self.m_cursor_pos = self.m_cursor_pos + 1
+	    end
+
+	    if #self.m_segments > 0 then
+	        local last_segment = self.m_segments[#self.m_segments]
+	        self:jump_to_line(last_segment.line + last_segment.lines_count)
+	    else
+	        self:jump_to_line(1)
+	    end
+
+	    self.m_stream:write(erase.till_end())
+	    self.m_stream:flush()
+	end
+
+	return terminal
 
 end
 
@@ -1458,14 +1614,247 @@ __bundler__.__files__["src.components.group"] = function()
 
 end
 
+__bundler__.__files__["src.misc.screen"] = function()
+	local table_concat = table.concat
+
+	---@enum lua-term.screen.state
+	local state = {
+	    Normal = 0,
+	    AnsiEscapeCode = 1
+	}
+
+	---@class lua-term.screen.line
+	---@field [integer] string
+	---@field length integer
+
+	---@class lua-term.screen
+	---@field private m_read_char_func fun() : string | nil
+	---
+	---@field private m_cursor_x integer
+	---@field private m_cursor_y integer
+	---@field private m_screen (lua-term.screen.line|nil)[]
+	---@field private m_changed table<integer, true>
+	---
+	---@field private m_state lua-term.screen.state
+	---@field private m_buffer string | nil
+	local screen_class = {}
+
+	---@param read_char_func fun() : string | nil
+	function screen_class.new(read_char_func)
+	    return setmetatable({
+	        m_read_char_func = read_char_func,
+
+	        m_cursor_x = 1,
+	        m_cursor_y = 1,
+	        m_screen = {},
+	        m_changed = {},
+
+	        m_state = state.Normal
+	    }, { __index = screen_class })
+	end
+
+	---@private
+	---@param line integer
+	---@return lua-term.screen.line
+	function screen_class:get_line(line)
+	    local _line = self.m_screen[line]
+	    if not _line then
+	        _line = { length = 0 }
+	        self.m_screen[line] = _line
+	    end
+	    return _line
+	end
+
+	function screen_class:get_height()
+	    return #self.m_screen
+	end
+
+	---@return (string[]|nil)[]
+	function screen_class:get_screen()
+	    return self.m_screen
+	end
+
+	---@return table<integer, string>
+	function screen_class:get_changed()
+	    ---@type table<integer, string>
+	    local buffer = {}
+	    for line in pairs(self.m_changed) do
+	        buffer[line] = table_concat(self:get_line(line))
+	    end
+	    return buffer
+	end
+
+	function screen_class:clear_changed()
+	    self.m_changed = {}
+	end
+
+	---@private
+	---@param dx integer
+	---@param dy integer
+	function screen_class:move_cursor(dx, dy)
+	    self.m_cursor_x = math.max(1, self.m_cursor_x + dx)
+	    self.m_cursor_y = math.max(1, self.m_cursor_y + dy)
+	end
+
+	---@private
+	---@param seq string
+	---@return integer[]
+	local function parse_ansi_escape_code_params(seq)
+	    local params = {}
+	    for param in seq:gmatch("%d+") do
+	        table.insert(params, tonumber(param))
+	    end
+	    return params
+	end
+
+	---@private
+	---@param command string
+	function screen_class:execute_ansi_escape_code(command)
+	    local params = parse_ansi_escape_code_params(self.m_buffer:sub(3, -1)) -- Extract parameters
+
+	    -- Process the command
+	    if command == "A" then
+	        -- Cursor Up (CSI n A)
+	        self:move_cursor(0, -(params[1] or 1))
+	    elseif command == "B" then
+	        -- Cursor Down (CSI n B)
+	        self:move_cursor(0, params[1] or 1)
+	    elseif command == "C" then
+	        -- Cursor Forward (CSI n C)
+	        self:move_cursor(params[1] or 1, 0)
+	    elseif command == "D" then
+	        -- Cursor Back (CSI n D)
+	        self:move_cursor(-(params[1] or 1), 0)
+	    elseif command == "H" or command == "f" then
+	        -- Cursor Position (CSI n;m H or CSI n;m f)
+	        self.m_cursor_y = params[1] or 1
+	        self.m_cursor_x = params[2] or 1
+	    elseif command == "J" then
+	        -- Erase in Display (CSI n J)
+	        if params[1] == 2 or not params[1] then
+	            self.m_screen = {}
+	        end
+	    elseif command == "K" then
+	        -- Erase in Line (CSI n K)
+	        local line = self:get_line(self.m_cursor_y)
+	        for x = self.m_cursor_x, line.length do
+	            line[x] = nil
+	        end
+	        line.length = self.m_cursor_x
+	    else
+	        self:write(self.m_buffer)
+	    end
+
+	    self.m_state = state.Normal
+	    self.m_buffer = nil
+	end
+
+	---@private
+	---@param buffer string
+	function screen_class:write(buffer)
+	    for i = 1, #buffer do
+	        local char = buffer:sub(i, i)
+
+	        local line = self:get_line(self.m_cursor_y)
+	        for x = line.length + 1, self.m_cursor_x - 1 do
+	            if not line[x] then
+	                line[x] = " "
+	            end
+	        end
+
+	        line[self.m_cursor_x] = char
+	        if line.length < self.m_cursor_x then
+	            line.length = self.m_cursor_x
+	        end
+	        self.m_cursor_x = self.m_cursor_x + 1
+
+	        self.m_changed[self.m_cursor_y] = true
+	    end
+	end
+
+	---@return string | nil char
+	function screen_class:process_char()
+	    local char = self.m_read_char_func()
+	    if not char then
+	        return nil
+	    end
+
+	    if char == "\r" then
+	        self.m_cursor_x = 1
+	        return char
+	    elseif char == "\n" then
+	        self.m_cursor_x = 1
+	        self.m_cursor_y = self.m_cursor_y + 1
+	        return char
+	    elseif char == "\27" then
+	        self.m_buffer = char
+	        self.m_state = state.AnsiEscapeCode
+	        return char
+	    elseif self.m_state == state.Normal then
+	        self:write(char)
+	        return char
+	    end
+
+	    if self.m_state == state.AnsiEscapeCode and #self.m_buffer == 1 and char ~= "[" then
+	        self.m_buffer = self.m_buffer .. char
+	        self.m_state = state.Normal
+	    end
+
+	    if self.m_state == state.Normal and self.m_buffer then
+	        self:write(self.m_buffer)
+	        self.m_buffer = nil
+	    elseif char:find("[A-Za-z]") then
+	        self:execute_ansi_escape_code(char)
+	    elseif self.m_state == state.AnsiEscapeCode then
+	        self.m_buffer = self.m_buffer .. char
+	    end
+
+	    return char
+	end
+
+	---@return string
+	function screen_class:to_string()
+	    local pos_y = 0
+	    local result = {}
+	    for y, row in pairs(self.m_screen) do
+	        while pos_y < y do
+	            pos_y = pos_y + 1
+	            if not result[pos_y] then
+	                result[pos_y] = ""
+	            end
+	        end
+
+	        local pos_x = 0
+	        local line = {}
+	        for x, char in pairs(row) do
+	            while pos_x < x do
+	                pos_x = pos_x + 1
+	                if not line[pos_x] then
+	                    line[pos_x] = " "
+	                end
+	            end
+
+	            line[x] = char
+	        end
+	        result[y] = table.concat(line)
+	    end
+	    return table.concat(result, "\n")
+	end
+
+	return screen_class
+
+end
+
 __bundler__.__files__["src.components.stream"] = function()
 	local utils = __bundler__.__loadFile__("misc.utils")
 	local table_insert = table.insert
 	local table_concat = table.concat
 
+	local screen_class = __bundler__.__loadFile__("src.misc.screen")
+
 	---@class lua-term.components.stream.config
-	---@field before string | nil
-	---@field after string | nil
+	---@field before string | ansicolors.color | nil
+	---@field after string | ansicolors.color | nil
 
 	---@class lua-term.components.stream : lua-term.segment_interface
 	---@field config lua-term.components.stream.config
@@ -1473,8 +1862,7 @@ __bundler__.__files__["src.components.stream"] = function()
 	---@field private m_stream file*
 	---@field private m_closed boolean
 	---
-	---@field private m_buffer string[]
-	---@field private m_line_count integer
+	---@field private m_screen lua-term.screen
 	---
 	---@field private m_parent lua-term.segment_parent
 	---@field private m_requested_update boolean
@@ -1492,8 +1880,9 @@ __bundler__.__files__["src.components.stream"] = function()
 	        m_stream = stream,
 	        m_closed = false,
 
-	        m_buffer = {},
-	        m_line_count = 0,
+	        m_screen = screen_class.new(function()
+	            return stream:read(1)
+	        end),
 
 	        m_parent = parent,
 	        m_requested_update = true,
@@ -1515,13 +1904,15 @@ __bundler__.__files__["src.components.stream"] = function()
 	---@return table<integer, string> update_buffer
 	---@return integer lines
 	function stream_class:render(context)
-	    ---@type string[]
-	    local buffer = {}
-	    for index, line in ipairs(self.m_buffer) do
-	        buffer[index] = ("%s%s%s"):format(self.config.before or "", line, self.config.after or "")
+	    local buffer = self.m_screen:get_changed()
+	    local height = self.m_screen:get_height()
+	    self.m_screen:clear_changed()
+
+	    for line, content in pairs(buffer) do
+	        buffer[line] = ("%s%s%s"):format(tostring(self.config.before or ""), content, tostring(self.config.after or ""))
 	    end
 
-	    return buffer, self.m_line_count
+	    return buffer, height
 	end
 
 	function stream_class:requested_update()
@@ -1529,40 +1920,32 @@ __bundler__.__files__["src.components.stream"] = function()
 	end
 
 	---@private
-	function stream_class:read()
-	    local char = self.m_stream:read(1)
+	function stream_class:read(update)
+	    local char = self.m_screen:process_char()
 	    if not char then
 	        self.m_closed = true
+	        return
 	    end
+
+	    if utils.value.default(update, true) then
+	        self:update()
+	    end
+
 	    return char
 	end
 
 	---@param update boolean | nil
 	function stream_class:read_line(update)
-	    local index = 0
-	    local line = {}
 	    while true do
-	        local char = self:read()
+	        local char = self:read(false)
 	        if not char then
 	            break
 	        end
 
 	        if char == "\n" then
 	            break
-	        elseif char == "\r" then
-	            index = 0
 	        end
-
-	        index = index + 1
-	        line[index] = char
 	    end
-
-	    if #line == 0 then
-	        return
-	    end
-
-	    self.m_line_count = self.m_line_count + 1
-	    self.m_buffer[self.m_line_count] = table_concat(line)
 
 	    if utils.value.default(update, true) then
 	        self:update()
@@ -1572,7 +1955,7 @@ __bundler__.__files__["src.components.stream"] = function()
 	---@param update boolean | nil
 	function stream_class:read_all(update)
 	    while not self.m_closed do
-	        self:read_line(update)
+	        self:read(update)
 	    end
 	end
 
@@ -1587,6 +1970,8 @@ end
 
 __bundler__.__files__["src.components.init"] = function()
 	---@class lua-term.components
+	---@field segment lua-term.segment
+	---
 	---@field text lua-term.components.text
 	---@field loading lua-term.components.loading
 	---@field throbber lua-term.components.throbber
@@ -1596,6 +1981,8 @@ __bundler__.__files__["src.components.init"] = function()
 	---
 	---@field stream lua-term.components.stream
 	local components = {
+	    segment = __bundler__.__loadFile__("src.segment.init"),
+
 	    text = __bundler__.__loadFile__("src.components.text"),
 	    loading = __bundler__.__loadFile__("src.components.loading"),
 	    throbber = __bundler__.__loadFile__("src.components.throbber"),
@@ -1607,166 +1994,6 @@ __bundler__.__files__["src.components.init"] = function()
 	}
 
 	return components
-
-end
-
-__bundler__.__files__["src.terminal"] = function()
-	local cursor = __bundler__.__loadFile__("src.cursor")
-	local erase = __bundler__.__loadFile__("src.erase")
-
-	local pairs = pairs
-	local math_abs = math.abs
-	local string_rep = string.rep
-	local io_type = io.type
-	local table_insert = table.insert
-	local table_remove = table.remove
-
-	local entry_class = __bundler__.__loadFile__("src.segment.entry")
-	local components = __bundler__.__loadFile__("src.components.init")
-
-	---@class lua-term.render_context
-	---@field show_ids boolean
-
-	---@class lua-term.terminal : lua-term.segment_parent
-	---@field show_ids boolean | nil
-	---@field show_lines boolean | nil
-	---
-	---@field private m_stream file*
-	---
-	---@field private m_segments lua-term.segment_entry[]
-	---
-	---@field private m_org_print function
-	---@field private m_cursor_pos integer
-	local terminal = {}
-
-	---@param stream file*
-	---@return lua-term.terminal
-	function terminal.new(stream)
-	    if io_type(stream) ~= "file" then
-	        error("stream is not valid")
-	    end
-
-	    return setmetatable({
-	        m_stream = stream,
-	        m_segments = {},
-	        m_cursor_pos = 1,
-	    }, {
-	        __index = terminal,
-	    })
-	end
-
-	local stdout_terminal
-	---@return lua-term.terminal
-	function terminal.stdout()
-	    if stdout_terminal then
-	        return stdout_terminal
-	    end
-
-	    stdout_terminal = terminal.new(io.stdout)
-	    return stdout_terminal
-	end
-
-	---@param ... any
-	---@return lua-term.segment
-	function terminal:print(...)
-	    return components.text.print(self, ...)
-	end
-
-	function terminal:add_segment(id, segment)
-	    local entry = entry_class.new(id, segment)
-	    table_insert(self.m_segments, entry)
-	end
-
-	function terminal:remove_child(child)
-	    for index, entry in ipairs(self.m_segments) do
-	        if entry:has_segment(child) then
-	            table_remove(self.m_segments, index)
-	        end
-	    end
-	end
-
-	function terminal:clear()
-	    self.m_segments = {}
-	    self:update()
-	end
-
-	---@private
-	---@param line integer
-	function terminal:jump_to_line(line)
-	    local jump_lines = line - self.m_cursor_pos
-	    if jump_lines == 0 then
-	        return
-	    end
-
-	    if jump_lines > 0 then
-	        self.m_stream:write(cursor.go_down(jump_lines))
-	    else
-	        self.m_stream:write(cursor.go_up(math_abs(jump_lines)))
-	    end
-	    self.m_cursor_pos = line
-	end
-
-	function terminal:update()
-	    local line_buffer_pos = 1
-	    ---@type table<integer, string>
-	    local line_buffer = {}
-
-	    for _, segment in ipairs(self.m_segments) do
-	        if not self.show_ids and not segment:requested_update() then
-	            if segment.line ~= line_buffer_pos then
-	                for index, line in ipairs(segment.lines) do
-	                    line_buffer[line_buffer_pos + index - 1] = line
-	                end
-
-	                segment.line = line_buffer_pos
-	            end
-	        else
-	            local context = {
-	                show_ids = self.show_ids
-	            }
-	            local update_lines = segment:pre_render(context)
-
-	            if segment.line ~= line_buffer_pos then
-	                for index, line in ipairs(segment.lines) do
-	                    line_buffer[line_buffer_pos + index - 1] = line
-	                end
-	            else
-	                for index, line in pairs(update_lines) do
-	                    line_buffer[line_buffer_pos + index - 1] = line
-	                end
-	            end
-
-	            segment.line = line_buffer_pos
-	        end
-
-	        line_buffer_pos = line_buffer_pos + segment.lines_count
-	    end
-
-	    for line, content in pairs(line_buffer) do
-	        self:jump_to_line(line)
-
-	        self.m_stream:write(erase.line())
-	        if self.show_lines then
-	            local line_str = tostring(line)
-	            local space = 3 - line_str:len()
-	            self.m_stream:write(line_str, string_rep(" ", space), "|")
-	        end
-	        self.m_stream:write(content, "\n")
-	        self.m_cursor_pos = self.m_cursor_pos + 1
-	    end
-
-	    if #self.m_segments > 0 then
-	        local last_segment = self.m_segments[#self.m_segments]
-	        self:jump_to_line(last_segment.line + last_segment.lines_count)
-	    else
-	        self:jump_to_line(1)
-	    end
-
-	    self.m_stream:write(erase.till_end())
-	    self.m_stream:flush()
-	end
-
-	return terminal
 
 end
 
