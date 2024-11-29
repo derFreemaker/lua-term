@@ -93,6 +93,7 @@ function group_class:update()
     self.m_parent:update()
 end
 
+---@return lua-term.segment
 function group_class:print(...)
     return text_component.print(self, ...)
 end

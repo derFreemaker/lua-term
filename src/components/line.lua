@@ -84,8 +84,13 @@ end
 --- segment_parent ---
 ----------------------
 
+function line_class:update()
+    self.m_parent:update()
+end
+
+---@return lua-term.segment
 function line_class:print(...)
-    text_segment.print(self, ...)
+    return text_segment.print(self, ...)
 end
 
 function line_class:add_segment(id, segment)
@@ -101,10 +106,6 @@ function line_class:remove_child(child)
     end
 
     self.m_requested_update = true
-end
-
-function line_class:update()
-    self.m_parent:update()
 end
 
 return line_class

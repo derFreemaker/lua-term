@@ -1251,7 +1251,8 @@ __bundler__.__files__["src.components.loading"] = function()
 	        return self.config.color_bg(string_rep(" ", self.config.length))
 	    end
 
-	    return self.config.color_fg(string_rep(" ", mark_tiles)) .. self.config.color_bg(string_rep(" ", self.config.length - mark_tiles))
+	    return self.config.color_fg(string_rep(" ", mark_tiles)) ..
+	    self.config.color_bg(string_rep(" ", self.config.length - mark_tiles))
 	end
 
 	---@param state_percent integer | nil
@@ -1467,8 +1468,13 @@ __bundler__.__files__["src.components.line"] = function()
 	--- segment_parent ---
 	----------------------
 
+	function line_class:update()
+	    self.m_parent:update()
+	end
+
+	---@return lua-term.segment
 	function line_class:print(...)
-	    text_segment.print(self, ...)
+	    return text_segment.print(self, ...)
 	end
 
 	function line_class:add_segment(id, segment)
@@ -1484,10 +1490,6 @@ __bundler__.__files__["src.components.line"] = function()
 	    end
 
 	    self.m_requested_update = true
-	end
-
-	function line_class:update()
-	    self.m_parent:update()
 	end
 
 	return line_class
@@ -1590,6 +1592,7 @@ __bundler__.__files__["src.components.group"] = function()
 	    self.m_parent:update()
 	end
 
+	---@return lua-term.segment
 	function group_class:print(...)
 	    return text_component.print(self, ...)
 	end

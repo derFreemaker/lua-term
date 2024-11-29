@@ -59,7 +59,8 @@ function loading:render()
         return self.config.color_bg(string_rep(" ", self.config.length))
     end
 
-    return self.config.color_fg(string_rep(" ", mark_tiles)) .. self.config.color_bg(string_rep(" ", self.config.length - mark_tiles))
+    return self.config.color_fg(string_rep(" ", mark_tiles)) ..
+    self.config.color_bg(string_rep(" ", self.config.length - mark_tiles))
 end
 
 ---@param state_percent integer | nil
