@@ -38,24 +38,33 @@ local terminal = term.terminal.stdout()
 
 -- terminal:clear()
 
-local install = "winget install --accept-source-agreements --accept-package-agreements --id \"9P8LTPGCBZXD\" -e"
-local uninstall = "winget uninstall --id \"9P8LTPGCBZXD\" -e"
+-- local handle, err_msg = io.popen("ping 1.1.1.1", "r")
+-- if not handle then
+--     error(err_msg)
+-- end
 
-local handle, err_msg = io.popen(install, "r")
-if not handle then
-    error(err_msg)
+-- local stream = term.components.stream.new("<stream>", terminal, handle, {
+--     before = term.colors.foreground_24bit(100, 100, 100) .. ">  ",
+--     after = term.colors.reset
+-- })
+-- stream:read_all()
+
+-- sleep(2)
+-- stream:remove()
+-- handle:close()
+
+
+local test_tbl = {
+    1, 1, 1, 1, 1,
+    test = 1, test2 = 1, test3 = 1, test4 = 1, test5 = 1,
+}
+for _ in term.components.loading.loop("test", terminal, test_tbl) do
+    sleep(0.05)
+end
+for _ in term.components.loading.loop("test", terminal, test_tbl, ipairs) do
+    sleep(0.05)
 end
 
-local stream = term.components.stream.new("<stream>", terminal, handle, {
-    before = term.colors.foreground_24bit(100, 100, 100) .. ">  ",
-    after = term.colors.reset
-})
-stream:read_all()
-
-sleep(2)
-stream:remove()
 terminal:close()
-
-handle:close()
 
 print("## END ##")

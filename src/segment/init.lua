@@ -23,7 +23,11 @@ function segment_class.new(id, func, parent)
 
         m_parent = parent,
     }, {
-        __index = segment_class
+        __index = segment_class,
+        ---@param t lua-term.segment
+        __gc = function(t)
+            t:remove(true)
+        end
     })
     parent:add_segment(id, instance)
 
