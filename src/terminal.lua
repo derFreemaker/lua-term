@@ -11,6 +11,9 @@ local table_remove = table.remove
 local entry_class = require("src.segment.entry")
 local _text = require("src.components.text")
 
+--//TODO: rewrite entire entity and cache system
+--//TODO: currently 2+ caching of same line
+
 ---@class lua-term.render_context
 ---@field show_ids boolean
 

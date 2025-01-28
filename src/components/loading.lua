@@ -4,8 +4,6 @@ local string_rep = string.rep
 local colors = require("third-party.ansicolors")
 local segment_class = require("src.segment.init")
 
---//TODO: add some metrics
-
 ---@class lua-term.components.loading.config.create
 ---@field length integer | nil (default: 40)
 ---
