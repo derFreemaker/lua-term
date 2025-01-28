@@ -59,10 +59,10 @@ local test_tbl = {
     test = 1, test2 = 1, test3 = 1, test4 = 1, test5 = 1,
 }
 for _ in term.components.loading.loop("test", terminal, test_tbl) do
-    sleep(0.05)
+    sleep(0.5)
 end
 for _ in term.components.loading.loop("test", terminal, test_tbl, ipairs) do
-    sleep(0.05)
+    sleep(0.5)
 end
 
 terminal:close()

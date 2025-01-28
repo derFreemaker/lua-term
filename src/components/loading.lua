@@ -51,9 +51,9 @@ function loading.new(id, parent, config)
     config.color_bg = utils.value.default(config.color_bg, colors.onblack)
     config.color_fg = utils.value.default(config.color_fg, colors.onmagenta)
 
-    config.count = utils.value.default(config.count, -1)
+    config.count = utils.value.default(config.count, 100)
     config.show_iterations_per_second = utils.value.default(config.show_iterations_per_second, false)
-    config.show_iterations_per_second = utils.value.default(config.show_porgress_number, false)
+    config.show_porgress_number = utils.value.default(config.show_porgress_number, true)
 
     ---@type lua-term.components.loading
     local instance = setmetatable({
@@ -76,7 +76,7 @@ end
 
 ---@return string
 function loading:render()
-    local mark_tiles = math.floor(self.config.length * self.state_percent / 100)
+    local mark_tiles = math.floor(self.config.length * self.state / self.config.count)
     if mark_tiles == 0 then
         return self.config.color_bg(string_rep(" ", self.config.length))
     end
@@ -88,13 +88,9 @@ function loading:render()
     )
 
     if self.config.show_porgress_number then
-        builder:append(" <", self.state)
-
-        if self.config.count ~= -1 then
-            builder:append("/", self.config.count)
-        end
-
-        builder:append(">")
+        local count_str = tostring(self.config.count)
+        local state_str = utils.string.left_pad(tostring(self.state), count_str:len())
+        builder:append(" <", count_str, "/", state_str, ">")
     end
 
     if self.config.show_iterations_per_second then
@@ -104,19 +100,17 @@ function loading:render()
     return builder:build()
 end
 
----@param state_percent integer
+---@param state integer
 ---@param update boolean | nil
-function loading:changed(state_percent, update)
-    self.state_percent = utils.value.clamp(state_percent, 0, 100)
-
+function loading:changed(state, update)
+    self.state = state
     self.m_segment:changed(utils.value.default(update, true))
 end
 
----@param state_percent integer
+---@param state integer
 ---@param update boolean | nil
-function loading:changed_relativ(state_percent, update)
-    self.state_percent = utils.value.clamp(self.state_percent + state_percent, 0, 100)
-
+function loading:changed_relativ(state, update)
+    self.state = self.state + state
     self.m_segment:changed(utils.value.default(update, true))
 end
 
@@ -141,12 +135,11 @@ function loading.loop(id, parent, tbl, iterator_func, config)
     end
 
     config = config or {}
-    config.tbl_count = utils.value.default(config.tbl_count, utils.table.count(value_pairs))
+    config.count = utils.table.count(value_pairs)
     config.remove_on_end = utils.value.default(config.remove_on_end, true)
     config.update_on_every_iteration = utils.value.default(config.update_on_every_iteration, true)
 
     local loading_bar = loading.new(id, parent, config)
-    local percent_per_item = 100 / config.tbl_count
 
     ---@generic K, V
     ---@param index K | nil
@@ -155,7 +148,7 @@ function loading.loop(id, parent, tbl, iterator_func, config)
         local key, value = next(value_pairs, index)
 
         if config.update_on_every_iteration then
-            loading_bar:changed_relativ(percent_per_item, true)
+            loading_bar:changed_relativ(1, true)
         end
 
         if (key == nil and value == nil) and config.remove_on_end then

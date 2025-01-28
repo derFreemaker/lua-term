@@ -36,7 +36,7 @@ function terminal.new(stream)
     stream:write("\27[?7l")
     return setmetatable({
         m_stream = stream,
-        m_segments = setmetatable({}, { __mode = 'v' }),
+        m_segments = {},
         m_cursor_pos = 1,
     }, { __index = terminal })
 end
