@@ -1,8 +1,6 @@
 local utils = require("misc.utils")
 local string_rep = string.rep
 
-local _string_builder = require("src.common.string_builder")
-
 local colors = require("third-party.ansicolors")
 local segment_class = require("src.segment.init")
 
@@ -14,7 +12,7 @@ local segment_class = require("src.segment.init")
 ---@field color_bg ansicolors.color | nil (default: black)
 ---@field color_fg ansicolors.color | nil (default: magenta)
 ---
----@field count integer | nil
+---@field count integer
 
 ---@class lua-term.components.loading.config
 ---@field length integer
@@ -24,7 +22,7 @@ local segment_class = require("src.segment.init")
 ---
 ---@field count integer
 
----@class lua-term.components.loading
+---@class lua-term.components.loading : lua-term.segment_interface
 ---@field id string
 ---
 ---@field state integer
@@ -36,7 +34,7 @@ local loading = {}
 
 ---@param id string
 ---@param parent lua-term.segment_parent
----@param config lua-term.components.loading.config.create | nil
+---@param config lua-term.components.loading.config.create
 ---@return lua-term.components.loading
 function loading.new(id, parent, config)
     config = config or {}
@@ -46,8 +44,6 @@ function loading.new(id, parent, config)
     config.color_bg = utils.value.default(config.color_bg, colors.onblack)
     config.color_fg = utils.value.default(config.color_fg, colors.onmagenta)
 
-    config.count = utils.value.default(config.count, 100)
-
     ---@type lua-term.components.loading
     local instance = setmetatable({
         id = id,
@@ -55,9 +51,9 @@ function loading.new(id, parent, config)
 
         config = config,
     }, { __index = loading })
-    instance.m_segment = segment_class.new(id, function()
+    instance.m_segment = segment_class.new(id, parent, function()
         return instance:render()
-    end, parent)
+    end)
 
     return instance
 end
@@ -69,13 +65,12 @@ function loading:render()
         return self.config.color_bg(string_rep(" ", self.config.length))
     end
 
-    local builder = _string_builder.new()
-    builder:append(
-        self.config.color_fg(string_rep(" ", mark_tiles)),
-        self.config.color_bg(string_rep(" ", self.config.length - mark_tiles))
-    )
+    return self.config.color_fg(string_rep(" ", mark_tiles))
+        .. self.config.color_bg(string_rep(" ", self.config.length - mark_tiles))
+end
 
-    return builder:build()
+function loading:requested_update()
+    self.m_segment:requested_update()
 end
 
 ---@param state integer

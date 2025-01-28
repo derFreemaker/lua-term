@@ -13,10 +13,10 @@ local debug_traceback = debug.traceback
 local segment_class = {}
 
 ---@param id string
----@param func lua-term.segment.func
 ---@param parent lua-term.segment_parent
+---@param func lua-term.segment.func
 ---@return lua-term.segment
-function segment_class.new(id, func, parent)
+function segment_class.new(id, parent, func)
     local instance = setmetatable({
         m_func = func,
         m_requested_update = true,

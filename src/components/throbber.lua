@@ -47,9 +47,9 @@ function throbber.new(id, parent, config)
 
         config = config
     }, { __index = throbber })
-    instance.m_segment = segment_class.new(id, function()
+    instance.m_segment = segment_class.new(id, parent, function()
         return instance:render()
-    end, parent)
+    end)
 
     return instance
 end

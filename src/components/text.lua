@@ -16,10 +16,10 @@ function _text.new(id, parent, text)
     local instance = setmetatable({
         m_text = text
     }, { __index = _text })
-    instance.m_segment = segment_class.new(id, function()
+    instance.m_segment = segment_class.new(id, parent, function()
         ---@diagnostic disable-next-line: invisible
         return instance.m_text
-    end, parent)
+    end)
 
     return instance
 end
@@ -34,9 +34,9 @@ function _text.print(parent, ...)
     end
     local text = table_concat(items, "\t")
 
-    local segment = segment_class.new("<print>", function()
+    local segment = segment_class.new("<print>", parent, function()
         return text
-    end, parent)
+    end)
     parent:update()
     return segment
 end

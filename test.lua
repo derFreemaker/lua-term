@@ -53,16 +53,22 @@ local terminal = term.terminal.stdout()
 -- stream:remove()
 -- handle:close()
 
-
 local test_tbl = {
     1, 1, 1, 1, 1,
     test = 1, test2 = 1, test3 = 1, test4 = 1, test5 = 1,
 }
-for _ in term.components.loading.loop("test", terminal, test_tbl) do
+for _ in term.components.loop.pairs("test", terminal, test_tbl, {
+    show_iterations_per_second = true
+}) do
+    sleep(0.2)
+end
+for _ in term.components.loop.ipairs("test", terminal, test_tbl) do
     sleep(0.5)
 end
-for _ in term.components.loading.loop("test", terminal, test_tbl, ipairs) do
-    sleep(0.5)
+for _ in term.components.loop._for("test", terminal, 1, 1000, 1, {
+    show_iterations_per_second = true
+}) do
+    sleep(0.0123)
 end
 
 terminal:close()
