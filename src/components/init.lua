@@ -20,6 +20,8 @@ local components = {
     group = require("src.components.group"),
 
     stream = require("src.components.stream"),
+
+    loop = require("src.components.loop")
 }
 
 return components
