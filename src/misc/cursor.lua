@@ -1,4 +1,4 @@
-local make_term_func = require("src.maketermfunc")
+local make_term_func = require("src.misc.maketermfunc")
 
 ---@class lua-term.cursor
 local cursor = {

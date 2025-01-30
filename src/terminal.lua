@@ -1,5 +1,5 @@
-local cursor = require("src.cursor")
-local erase = require("src.erase")
+local cursor = require("src.misc.cursor")
+local erase = require("src.misc.erase")
 
 local pairs = pairs
 local math_abs = math.abs

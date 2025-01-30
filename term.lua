@@ -115,78 +115,73 @@ __bundler__.__files__["misc.utils"] = function()
 	---@diagnostic disable
 
 	local __bundler__ = {
-		__files__ = {},
-		__binary_files__ = {},
-		__cache__ = {},
-		__temp_files__ = {},
-		__org_exit__ = os.exit
+	    __files__ = {},
+	    __binary_files__ = {},
+	    __cache__ = {},
+	    __temp_files__ = {},
+	    __org_exit__ = os.exit
 	}
 	function __bundler__.__get_os__()
-		if package.config:sub(1, 1) == '\\' then
-			return "windows"
-		else
-			return "linux"
-		end
+	    if package.config:sub(1, 1) == '\\' then
+	        return "windows"
+	    else
+	        return "linux"
+	    end
 	end
-
 	function __bundler__.__loadFile__(module)
-		if not __bundler__.__cache__[module] then
-			if __bundler__.__binary_files__[module] then
-				local tempDir = os.getenv("TEMP") or os.getenv("TMP")
-				if not tempDir then
-					tempDir = "/tmp"
-				end
-				local os_type = __bundler__.__get_os__()
-				local file_path = tempDir .. os.tmpname()
-				local file = io.open(file_path, "wb")
-				if not file then
-					error("unable to open file: " .. file_path)
-				end
-				local content
-				if os_type == "windows" then
-					content = __bundler__.__files__[module .. ".dll"]
-				else
-					content = __bundler__.__files__[module .. ".so"]
-				end
-				local content_len = content:len()
-				for i = 2, content_len, 2 do
-					local byte = tonumber(content:sub(i - 1, i), 16)
-					file:write(string.char(byte))
-				end
-				file:close()
-				__bundler__.__cache__[module] = { package.loadlib(file_path, "luaopen_" .. module)() }
-				table.insert(__bundler__.__temp_files__, file_path)
-			else
-				__bundler__.__cache__[module] = { __bundler__.__files__[module]() }
-			end
-		end
-		return table.unpack(__bundler__.__cache__[module])
+	    if not __bundler__.__cache__[module] then
+	        if __bundler__.__binary_files__[module] then
+	        local tempDir = os.getenv("TEMP") or os.getenv("TMP")
+	            if not tempDir then
+	                tempDir = "/tmp"
+	            end
+	            local os_type = __bundler__.__get_os__()
+	            local file_path = tempDir .. os.tmpname()
+	            local file = io.open(file_path, "wb")
+	            if not file then
+	                error("unable to open file: " .. file_path)
+	            end
+	            local content
+	            if os_type == "windows" then
+	                content = __bundler__.__files__[module .. ".dll"]
+	            else
+	                content = __bundler__.__files__[module .. ".so"]
+	            end
+	            local content_len = content:len()
+	            for i = 2, content_len, 2 do
+	                local byte = tonumber(content:sub(i - 1, i), 16)
+	                file:write(string.char(byte))
+	            end
+	            file:close()
+	            __bundler__.__cache__[module] = { package.loadlib(file_path, "luaopen_" .. module)() }
+	            table.insert(__bundler__.__temp_files__, file_path)
+	        else
+	            __bundler__.__cache__[module] = { __bundler__.__files__[module]() }
+	        end
+	    end
+	    return table.unpack(__bundler__.__cache__[module])
 	end
-
 	function __bundler__.__cleanup__()
-		for _, file_path in ipairs(__bundler__.__temp_files__) do
-			os.remove(file_path)
-		end
+	    for _, file_path in ipairs(__bundler__.__temp_files__) do
+	        os.remove(file_path)
+	    end
 	end
-
 	---@diagnostic disable-next-line: duplicate-set-field
 	function os.exit(...)
-		__bundler__.__cleanup__()
-		__bundler__.__org_exit__(...)
+	    __bundler__.__cleanup__()
+	    __bundler__.__org_exit__(...)
 	end
-
 	function __bundler__.__main__()
-		local loading_thread = coroutine.create(__bundler__.__loadFile__)
-		local success, items = (function(success, ...) return success, { ... } end)
-			(coroutine.resume(loading_thread, "__main__"))
-		if not success then
-			print("error in bundle loading thread:\n"
-				.. debug.traceback(loading_thread, items[1]))
-		end
-		__bundler__.__cleanup__()
-		return table.unpack(items)
+	    local loading_thread = coroutine.create(__bundler__.__loadFile__)
+	    local success, items = (function(success, ...) return success, {...} end)
+	        (coroutine.resume(loading_thread, "__main__"))
+	    if not success then
+	        print("error in bundle loading thread:\n"
+	            .. debug.traceback(loading_thread, items[1]))
+	    end
+	    __bundler__.__cleanup__()
+	    return table.unpack(items)
 	end
-
 	__bundler__.__files__["src.utils.number"] = function()
 		---@class Freemaker.utils.number
 		local _number = {}
@@ -198,18 +193,18 @@ __bundler__.__files__["misc.utils"] = function()
 		---@param decimal integer | nil
 		---@return integer
 		function _number.round(value, decimal)
-			decimal = decimal or 0
-			if decimal > 308 then
-				error("cannot round more decimals than 308")
-			end
+		    decimal = decimal or 0
+		    if decimal > 308 then
+		        error("cannot round more decimals than 308")
+		    end
 
-			local mult = round_cache[decimal]
-			if not mult then
-				mult = 10 ^ decimal
-				round_cache[decimal] = mult
-			end
+		    local mult = round_cache[decimal]
+		    if not mult then
+		        mult = 10 ^ decimal
+		        round_cache[decimal] = mult
+		    end
 
-			return ((value * mult + 0.5) // 1) / mult
+		    return ((value * mult + 0.5) // 1) / mult
 		end
 
 		---@param value number
@@ -217,18 +212,19 @@ __bundler__.__files__["misc.utils"] = function()
 		---@param max number
 		---@return number
 		function _number.clamp(value, min, max)
-			if value < min then
-				return min
-			end
+		    if value < min then
+		        return min
+		    end
 
-			if value > max then
-				return max
-			end
+		    if value > max then
+		        return max
+		    end
 
-			return value
+		    return value
 		end
 
 		return _number
+
 	end
 
 	__bundler__.__files__["src.utils.string.builder"] = function()
@@ -240,35 +236,36 @@ __bundler__.__files__["misc.utils"] = function()
 		local _string_builder = {}
 
 		function _string_builder.new()
-			local instance = setmetatable({
-				m_cache = {}
-			}, { __index = _string_builder })
-			return instance
+		    local instance = setmetatable({
+		        m_cache = {}
+		    }, { __index = _string_builder })
+		    return instance
 		end
 
 		function _string_builder:append(...)
-			for _, value in ipairs({ ... }) do
-				table_insert(self.m_cache, tostring(value))
-			end
+		    for _, value in ipairs({...}) do
+		        table_insert(self.m_cache, tostring(value))
+		    end
 		end
 
 		function _string_builder:append_line(...)
-			self:append(...)
-			self:append("\n")
+		    self:append(...)
+		    self:append("\n")
 		end
 
 		function _string_builder:build()
-			return table_concat(self.m_cache)
+		    return table_concat(self.m_cache)
 		end
 
 		return _string_builder
+
 	end
 
 	__bundler__.__files__["src.utils.string.init"] = function()
 		---@class Freemaker.utils.string
 		---@field builder Freemaker.utils.string.builder
 		local _string = {
-			builder = __bundler__.__loadFile__("src.utils.string.builder")
+		    builder = __bundler__.__loadFile__("src.utils.string.builder")
 		}
 
 		---@param str string
@@ -276,13 +273,13 @@ __bundler__.__files__["misc.utils"] = function()
 		---@param plain boolean | nil
 		---@return string | nil, integer
 		local function find_next(str, pattern, plain)
-			local found = str:find(pattern, 0, plain or true)
+		    local found = str:find(pattern, 0, plain or true)
 
-			if found == nil then
-				return nil, 0
-			end
+		    if found == nil then
+		        return nil, 0
+		    end
 
-			return str:sub(0, found - 1), found - 1
+		    return str:sub(0, found - 1), found - 1
 		end
 
 		---@param str string | nil
@@ -290,67 +287,68 @@ __bundler__.__files__["misc.utils"] = function()
 		---@param plain boolean | nil
 		---@return string[]
 		function _string.split(str, sep, plain)
-			if str == nil then
-				return {}
-			end
+		    if str == nil then
+		        return {}
+		    end
 
-			local strLen = str:len()
-			local sepLen
+		    local strLen = str:len()
+		    local sepLen
 
-			if sep == nil then
-				sep = "%s"
-				sepLen = 2
-			else
-				sepLen = sep:len()
-			end
+		    if sep == nil then
+		        sep = "%s"
+		        sepLen = 2
+		    else
+		        sepLen = sep:len()
+		    end
 
-			local tbl = {}
-			local i = 0
-			while true do
-				i = i + 1
-				local foundStr, foundPos = find_next(str, sep, plain)
+		    local tbl = {}
+		    local i = 0
+		    while true do
+		        i = i + 1
+		        local foundStr, foundPos = find_next(str, sep, plain)
 
-				if foundStr == nil then
-					tbl[i] = str
-					return tbl
-				end
+		        if foundStr == nil then
+		            tbl[i] = str
+		            return tbl
+		        end
 
-				tbl[i] = foundStr
-				str = str:sub(foundPos + sepLen + 1, strLen)
-			end
+		        tbl[i] = foundStr
+		        str = str:sub(foundPos + sepLen + 1, strLen)
+		    end
 		end
 
 		---@param str string | nil
 		---@return boolean
 		function _string.is_nil_or_empty(str)
-			if str == nil then
-				return true
-			end
+		    if str == nil then
+		        return true
+		    end
 
-			if str == "" then
-				return true
-			end
+		    if str == "" then
+		        return true
+		    end
 
-			return false
+		    return false
 		end
 
 		---@param str string
 		---@param length integer
 		---@param char string | nil
 		function _string.left_pad(str, length, char)
-			local str_length = str:len()
-			return string.rep(char or " ", length - str_length) .. str
+		    local str_length = str:len()
+		    return string.rep(char or " ", length - str_length) .. str
 		end
 
 		---@param str string
 		---@param length integer
 		---@param char string | nil
 		function _string.right_pad(str, length, char)
-			local str_length = str:len()
-			return str .. string.rep(char or " ", length - str_length)
+		    local str_length = str:len()
+		    return str .. string.rep(char or " ", length - str_length)
 		end
 
 		return _string
+
 	end
 
 	__bundler__.__files__["src.utils.table"] = function()
@@ -362,108 +360,108 @@ __bundler__.__files__["misc.utils"] = function()
 		---@param seen table<table, table>
 		---@return table
 		local function copy_table_to(t, copy, seen)
-			if seen[t] then
-				return seen[t]
-			end
+		    if seen[t] then
+		        return seen[t]
+		    end
 
-			seen[t] = copy
+		    seen[t] = copy
 
-			for key, value in next, t do
-				if type(value) == "table" then
-					copy[key] = copy_table_to(value, copy[key] or {}, seen)
-				else
-					copy[key] = value
-				end
-			end
+		    for key, value in next, t do
+		        if type(value) == "table" then
+		            copy[key] = copy_table_to(value, copy[key] or {}, seen)
+		        else
+		            copy[key] = value
+		        end
+		    end
 
-			local t_meta = getmetatable(t)
-			if t_meta then
-				local copy_meta = getmetatable(copy) or {}
-				copy_table_to(t_meta, copy_meta, seen)
-				setmetatable(copy, copy_meta)
-			end
+		    local t_meta = getmetatable(t)
+		    if t_meta then
+		        local copy_meta = getmetatable(copy) or {}
+		        copy_table_to(t_meta, copy_meta, seen)
+		        setmetatable(copy, copy_meta)
+		    end
 
-			return copy
+		    return copy
 		end
 
 		---@generic T
 		---@param t T
 		---@return T table
 		function _table.copy(t)
-			return copy_table_to(t, {}, {})
+		    return copy_table_to(t, {}, {})
 		end
 
 		---@generic T
 		---@param from T
 		---@param to T
 		function _table.copy_to(from, to)
-			copy_table_to(from, to, {})
+		    copy_table_to(from, to, {})
 		end
 
 		---@param t table
 		---@param ignoreProperties string[] | nil
 		function _table.clear(t, ignoreProperties)
-			if not ignoreProperties then
-				for key, _ in next, t, nil do
-					t[key] = nil
-				end
-			else
-				for key, _ in next, t, nil do
-					if not _table.contains(ignoreProperties, key) then
-						t[key] = nil
-					end
-				end
-			end
+		    if not ignoreProperties then
+		        for key, _ in next, t, nil do
+		            t[key] = nil
+		        end
+		    else
+		        for key, _ in next, t, nil do
+		            if not _table.contains(ignoreProperties, key) then
+		                t[key] = nil
+		            end
+		        end
+		    end
 
-			setmetatable(t, nil)
+		    setmetatable(t, nil)
 		end
 
 		---@param t table
 		---@param value any
 		---@return boolean
 		function _table.contains(t, value)
-			for _, tValue in pairs(t) do
-				if value == tValue then
-					return true
-				end
-			end
+		    for _, tValue in pairs(t) do
+		        if value == tValue then
+		            return true
+		        end
+		    end
 
-			return false
+		    return false
 		end
 
 		---@param t table
 		---@param key any
 		---@return boolean
 		function _table.contains_key(t, key)
-			if t[key] ~= nil then
-				return true
-			end
+		    if t[key] ~= nil then
+		        return true
+		    end
 
-			return false
+		    return false
 		end
 
 		---@param t table
 		---@return integer count
 		function _table.count(t)
-			local count = 0
+		    local count = 0
 
-			for _, _ in next, t, nil do
-				count = count + 1
-			end
+		    for _, _ in next, t, nil do
+		        count = count + 1
+		    end
 
-			return count
+		    return count
 		end
 
 		---@param t table
 		---@return table
 		function _table.invert(t)
-			local inverted = {}
+		    local inverted = {}
 
-			for key, value in pairs(t) do
-				inverted[value] = key
-			end
+		    for key, value in pairs(t) do
+		        inverted[value] = key
+		    end
 
-			return inverted
+		    return inverted
 		end
 
 		---@generic T
@@ -472,14 +470,14 @@ __bundler__.__files__["misc.utils"] = function()
 		---@param func fun(value: T) : R
 		---@return R[]
 		function _table.map(t, func)
-			---@type any[]
-			local result = {}
+		    ---@type any[]
+		    local result = {}
 
-			for index, value in ipairs(t) do
-				result[index] = func(value)
-			end
+		    for index, value in ipairs(t) do
+		        result[index] = func(value)
+		    end
 
-			return result
+		    return result
 		end
 
 		-- Only makes this table readonly
@@ -488,12 +486,12 @@ __bundler__.__files__["misc.utils"] = function()
 		---@param t T
 		---@return T
 		function _table.readonly(t)
-			return setmetatable({}, {
-				__newindex = function()
-					error("this table is readonly")
-				end,
-				__index = t
-			})
+		    return setmetatable({}, {
+		        __newindex = function()
+		            error("this table is readonly")
+		        end,
+		        __index = t
+		    })
 		end
 
 		---@generic T
@@ -502,15 +500,15 @@ __bundler__.__files__["misc.utils"] = function()
 		---@param func fun(key: any, value: any) : R
 		---@return R[]
 		function _table.select(t, func)
-			local copy = _table.copy(t)
+		    local copy = _table.copy(t)
 
-			for key, value in pairs(copy) do
-				if not func(key, value) then
-					copy[key] = nil
-				end
-			end
+		    for key, value in pairs(copy) do
+		        if not func(key, value) then
+		            copy[key] = nil
+		        end
+		    end
 
-			return copy
+		    return copy
 		end
 
 		---@generic T
@@ -519,16 +517,17 @@ __bundler__.__files__["misc.utils"] = function()
 		---@param func fun(key: any, value: any) : R
 		---@return R[]
 		function _table.select_implace(t, func)
-			for key, value in pairs(t) do
-				if not func(key, value) then
-					t[key] = nil
-				end
-			end
+		    for key, value in pairs(t) do
+		        if not func(key, value) then
+		            t[key] = nil
+		        end
+		    end
 
-			return t
+		    return t
 		end
 
 		return _table
+
 	end
 
 	__bundler__.__files__["src.utils.array"] = function()
@@ -538,14 +537,14 @@ __bundler__.__files__["misc.utils"] = function()
 		---@param t T[]
 		---@param value T
 		local function insert_first_nil(t, value)
-			local i = 0
-			while true do
-				i = i + 1
-				if t[i] == nil then
-					t[i] = value
-					return
-				end
-			end
+		    local i = 0
+		    while true do
+		        i = i + 1
+		        if t[i] == nil then
+		            t[i] = value
+		            return
+		        end
+		    end
 		end
 
 		---@class Freemaker.utils.array
@@ -556,16 +555,16 @@ __bundler__.__files__["misc.utils"] = function()
 		---@param amount integer
 		---@return T[]
 		function _array.take_front(t, amount)
-			local length = #t
-			if amount > length then
-				amount = length
-			end
+		    local length = #t
+		    if amount > length then
+		        amount = length
+		    end
 
-			local copy = {}
-			for i = 1, amount, 1 do
-				table_insert(copy, t[i])
-			end
-			return copy
+		    local copy = {}
+		    for i = 1, amount, 1 do
+		        table_insert(copy, t[i])
+		    end
+		    return copy
 		end
 
 		---@generic T
@@ -573,17 +572,17 @@ __bundler__.__files__["misc.utils"] = function()
 		---@param amount integer
 		---@return T[]
 		function _array.take_back(t, amount)
-			local length = #t
-			local start = #t - amount + 1
-			if start < 1 then
-				start = 1
-			end
+		    local length = #t
+		    local start = #t - amount + 1
+		    if start < 1 then
+		        start = 1
+		    end
 
-			local copy = {}
-			for i = start, length, 1 do
-				table_insert(copy, t[i])
-			end
-			return copy
+		    local copy = {}
+		    for i = start, length, 1 do
+		        table_insert(copy, t[i])
+		    end
+		    return copy
 		end
 
 		---@generic T
@@ -591,15 +590,15 @@ __bundler__.__files__["misc.utils"] = function()
 		---@param amount integer
 		---@return T[]
 		function _array.drop_front_implace(t, amount)
-			for i, value in ipairs(t) do
-				if i <= amount then
-					t[i] = nil
-				else
-					insert_first_nil(t, value)
-					t[i] = nil
-				end
-			end
-			return t
+		    for i, value in ipairs(t) do
+		        if i <= amount then
+		            t[i] = nil
+		        else
+		            insert_first_nil(t, value)
+		            t[i] = nil
+		        end
+		    end
+		    return t
 		end
 
 		---@generic T
@@ -607,13 +606,13 @@ __bundler__.__files__["misc.utils"] = function()
 		---@param amount integer
 		---@return T[]
 		function _array.drop_back_implace(t, amount)
-			local length = #t
-			local start = length - amount + 1
+		    local length = #t
+		    local start = length - amount + 1
 
-			for i = start, length, 1 do
-				t[i] = nil
-			end
-			return t
+		    for i = start, length, 1 do
+		        t[i] = nil
+		    end
+		    return t
 		end
 
 		---@generic T
@@ -622,11 +621,11 @@ __bundler__.__files__["misc.utils"] = function()
 		---@param func fun(index: integer, value: T) : R
 		---@return R[]
 		function _array.select(t, func)
-			local copy = {}
-			for index, value in pairs(t) do
-				table_insert(copy, func(index, value))
-			end
-			return copy
+		    local copy = {}
+		    for index, value in pairs(t) do
+		        table_insert(copy, func(index, value))
+		    end
+		    return copy
 		end
 
 		---@generic T
@@ -635,37 +634,38 @@ __bundler__.__files__["misc.utils"] = function()
 		---@param func fun(index: integer, value: T) : R
 		---@return R[]
 		function _array.select_implace(t, func)
-			for index, value in pairs(t) do
-				local new_value = func(index, value)
-				t[index] = nil
-				if new_value then
-					insert_first_nil(t, new_value)
-				end
-			end
-			return t
+		    for index, value in pairs(t) do
+		        local new_value = func(index, value)
+		        t[index] = nil
+		        if new_value then
+		            insert_first_nil(t, new_value)
+		        end
+		    end
+		    return t
 		end
 
 		--- removes all spaces between
 		---@param t any[]
 		function _array.clean(t)
-			for key, value in pairs(t) do
-				for i = key - 1, 1, -1 do
-					if key == 1 then
-						goto continue
-					end
+		    for key, value in pairs(t) do
+		        for i = key - 1, 1, -1 do
+		            if key == 1 then
+		                goto continue
+		            end
 
-					if t[i] == nil and (t[i - 1] ~= nil or i == 1) then
-						t[i] = value
-						t[key] = nil
-						break
-					end
+		            if t[i] == nil and (t[i - 1] ~= nil or i == 1) then
+		                t[i] = value
+		                t[key] = nil
+		                break
+		            end
 
-					::continue::
-				end
-			end
+		            ::continue::
+		        end
+		    end
 		end
 
 		return _array
+
 	end
 
 	__bundler__.__files__["src.utils.value"] = function()
@@ -678,12 +678,12 @@ __bundler__.__files__["misc.utils"] = function()
 		---@param x T
 		---@return T
 		function _value.copy(x)
-			local typeStr = type(x)
-			if typeStr == "table" then
-				return table.copy(x)
-			end
+		    local typeStr = type(x)
+		    if typeStr == "table" then
+		        return table.copy(x)
+		    end
 
-			return x
+		    return x
 		end
 
 		---@generic T
@@ -691,70 +691,95 @@ __bundler__.__files__["misc.utils"] = function()
 		---@param default_value T
 		---@return T
 		function _value.default(value, default_value)
-			if value == nil then
-				return default_value
-			end
+		    if value == nil then
+		        return default_value
+		    end
 
-			return value
+		    return value
 		end
 
 		return _value
+
 	end
 
 	__bundler__.__files__["src.utils.stopwatch"] = function()
+		local _number = __bundler__.__loadFile__("src.utils.number")
+
 		---@class Freemaker.utils.stopwatch
-		---@field start_time number | nil
-		---@field last_lap_time number | nil
+		---@field private running boolean
+		---
+		---@field start_time number
+		---@field end_time number
+		---@field private elapesd_milliseconds integer
+		---
+		---@field private last_lap_time number | nil
 		local _stopwatch = {}
 
+		---@return Freemaker.utils.stopwatch
 		function _stopwatch.new()
-			return setmetatable({
-			}, { __index = _stopwatch })
+		    return setmetatable({
+		        running = false,
+
+		        start_time = 0,
+		        end_time = 0,
+		        elapesd_milliseconds = 0,
+		    }, { __index = _stopwatch })
 		end
 
+		---@return Freemaker.utils.stopwatch
 		function _stopwatch.start_new()
-			local instance = _stopwatch.new()
-			instance:start()
-			return instance
+		    local instance = _stopwatch.new()
+		    instance:start()
+		    return instance
 		end
 
 		function _stopwatch:start()
-			if self.start_time then
-				return
-			end
+		    if self.running then
+		        return
+		    end
 
-			self.start_time = os.clock()
+		    self.start_time = os.clock()
+		    self.running = true
 		end
 
-		---@return number elapesd_milliseconds
 		function _stopwatch:stop()
-			if not self.start_time then
-				return 0
-			end
+		    if not self.running then
+		        return
+		    end
 
-			local elapesd_time = os.clock() - self.start_time
-			self.start_time = nil
+		    self.end_time = os.clock()
+		    local elapesd_time = self.end_time - self.start_time
+		    self.running = false
 
-			return elapesd_time * 1000
+		    self.elapesd_milliseconds = _number.round(elapesd_time * 1000)
 		end
 
-		---@return number elapesd_milliseconds
+		---@return integer
+		function _stopwatch:get_elapesd_milliseconds()
+		    if self.running then
+		        return 0
+		    end
+
+		    return self.elapesd_milliseconds
+		end
+
+		---@return integer elapesd_milliseconds
 		function _stopwatch:lap()
-			if not self.start_time then
-				return 0
-			end
+		    if not self.running then
+		        return 0
+		    end
 
-			local lap_time = os.clock()
+		    local lap_time = os.clock()
+		    local previous_lap = self.last_lap_time or self.start_time
+		    self.last_lap_time = lap_time
 
-			local previous_lap = self.last_lap_time or self.start_time
-			local elapesd_time = lap_time - previous_lap
+		    local elapesd_time = lap_time - previous_lap
 
-			self.last_lap_time = lap_time
-
-			return elapesd_time * 1000
+		    return _number.round(elapesd_time * 1000)
 		end
 
 		return _stopwatch
+
 	end
 
 	__bundler__.__files__["__main__"] = function()
@@ -777,6 +802,7 @@ __bundler__.__files__["misc.utils"] = function()
 		utils.stopwatch = __bundler__.__loadFile__("src.utils.stopwatch")
 
 		return utils
+
 	end
 
 	---@type { [1]: Freemaker.utils }
@@ -925,7 +951,7 @@ __bundler__.__files__["third-party.ansicolors"] = function()
 
 end
 
-__bundler__.__files__["src.maketermfunc"] = function()
+__bundler__.__files__["src.misc.maketermfunc"] = function()
 	local sformat = string.format
 
 	return function(sequence_fmt)
@@ -937,8 +963,8 @@ __bundler__.__files__["src.maketermfunc"] = function()
 
 end
 
-__bundler__.__files__["src.cursor"] = function()
-	local make_term_func = __bundler__.__loadFile__("src.maketermfunc")
+__bundler__.__files__["src.misc.cursor"] = function()
+	local make_term_func = __bundler__.__loadFile__("src.misc.maketermfunc")
 
 	---@class lua-term.cursor
 	local cursor = {
@@ -964,8 +990,8 @@ __bundler__.__files__["src.cursor"] = function()
 
 end
 
-__bundler__.__files__["src.erase"] = function()
-	local make_term_func = __bundler__.__loadFile__("src.maketermfunc")
+__bundler__.__files__["src.misc.erase"] = function()
+	local make_term_func = __bundler__.__loadFile__("src.misc.maketermfunc")
 
 	---@class lua-term.erase
 	local erase = {}
@@ -1232,8 +1258,8 @@ __bundler__.__files__["src.components.text"] = function()
 end
 
 __bundler__.__files__["src.terminal"] = function()
-	local cursor = __bundler__.__loadFile__("src.cursor")
-	local erase = __bundler__.__loadFile__("src.erase")
+	local cursor = __bundler__.__loadFile__("src.misc.cursor")
+	local erase = __bundler__.__loadFile__("src.misc.erase")
 
 	local pairs = pairs
 	local math_abs = math.abs
@@ -1471,10 +1497,13 @@ __bundler__.__files__["src.components.loading"] = function()
 	    self.m_segment:requested_update()
 	end
 
-	---@param state integer
+	---@param state integer | nil
 	---@param update boolean | nil
 	function loading:changed(state, update)
-	    self.state = state
+	    if state then
+	        self.state = state
+	    end
+
 	    self.m_segment:changed(utils.value.default(update, true))
 	end
 
@@ -2183,29 +2212,28 @@ __bundler__.__files__["src.components.stream"] = function()
 
 end
 
-__bundler__.__files__["src.components.loop"] = function()
+__bundler__.__files__["src.components.loop_with_end"] = function()
 	local utils = __bundler__.__loadFile__("misc.utils")
 
 	local _line = __bundler__.__loadFile__("src.components.line")
 	local _segment = __bundler__.__loadFile__("src.segment.init")
 	local _loading = __bundler__.__loadFile__("src.components.loading")
 
-	---@class lua-term.components.loop.config.create : lua-term.components.loading.config.create
+	---@class lua-term.components.loop_with_end.config.create : lua-term.components.loading.config.create
 	---@field update_on_remove boolean | nil default is `true`
-	---@field update_on_every_iteration boolean | nil default is `true`
+	---@field update_on_every_iterations integer | nil default is `true`
 	---@field show_progress_number boolean | nil default is `true`
 	---@field show_iterations_per_second boolean | nil default is `false`
 	---
-	---
-	---@field count integer | nil
+	---@field count integer
 
 	---@class lua-term.components.loop.config : lua-term.components.loading.config
 	---@field update_on_remove boolean
-	---@field update_on_every_iteration boolean
+	---@field update_on_every_iterations boolean
 	---@field show_progress_number boolean
 	---@field show_iterations_per_second boolean
 
-	---@class lua-term.components.loop
+	---@class lua-term.components.loop_with_end
 	---@field stopwatch Freemaker.utils.stopwatch
 	---
 	---@field loading_line lua-term.components.line
@@ -2213,21 +2241,21 @@ __bundler__.__files__["src.components.loop"] = function()
 	---@field info_text lua-term.segment
 	---
 	---@field config lua-term.components.loop.config
-	local _loop = {}
+	local _loop_with_end = {}
 
 	---@param id string
 	---@param parent lua-term.segment_parent
-	---@param config lua-term.components.loop.config.create
-	---@return lua-term.components.loop
-	function _loop.new(id, parent, config)
+	---@param config lua-term.components.loop_with_end.config.create
+	---@return lua-term.components.loop_with_end
+	function _loop_with_end.new(id, parent, config)
 	    config.update_on_remove = utils.value.default(config.update_on_remove, true)
-	    config.update_on_every_iteration = utils.value.default(config.update_on_every_iteration, true)
+	    config.update_on_every_iterations = utils.value.default(config.update_on_every_iterations, 1)
 	    config.show_progress_number = utils.value.default(config.show_progress_number, true)
 	    config.show_iterations_per_second = utils.value.default(config.show_iterations_per_second, false)
 
 	    local stopwatch = utils.stopwatch.start_new()
 	    local loading_line = _line.new(id, parent)
-	    local loading_bar = _loading.new(id, loading_line, config)
+	    local loading_bar = _loading.new(id .. "-loading_bar", loading_line, config)
 	    local info_text = _segment.new(id .. "-info", loading_line, function()
 	        local builder = utils.string.builder.new()
 
@@ -2238,8 +2266,11 @@ __bundler__.__files__["src.components.loop"] = function()
 	        end
 
 	        if config.show_iterations_per_second then
-	            local iterations_per_second = 1 / (stopwatch:lap() / 1000)
-	            builder:append(" |", string.format("%.0f", iterations_per_second), "itr/s|")
+	            local lap_time = stopwatch:lap()
+	            if loading_bar.state ~= 0 then
+	                local iterations_per_second = 1 / (lap_time / 1000) * config.update_on_every_iterations
+	                builder:append(" |", string.format("%.1f", iterations_per_second), "itr/s|")
+	            end
 	        end
 
 	        return builder:build()
@@ -2253,87 +2284,123 @@ __bundler__.__files__["src.components.loop"] = function()
 	        info_text = info_text,
 
 	        config = config
-	    }, { __index = _loop })
-
+	    }, { __index = _loop_with_end })
 
 	    return instance
 	end
 
+	function _loop_with_end:iterate()
+	    self.loading_bar:changed_relativ(1, false)
+
+	    if self.loading_bar.state % self.config.update_on_every_iterations == 0 then
+	        self.info_text:changed()
+	        self.loading_line:update()
+	    end
+	end
+
+	function _loop_with_end:show()
+	    self.loading_bar:changed(nil, false)
+	    self.info_text:changed(false)
+	    self.loading_line:update()
+	end
+
+	function _loop_with_end:remove()
+	    self.stopwatch:stop()
+	    self.loading_line:remove(self.config.update_on_remove)
+	end
+
+	--- Will iterate over whole table if config.count not set
 	---@generic T : table, K, V
 	---@param id string
 	---@param parent lua-term.segment_parent
 	---@param tbl table<K, V>
 	---@param iterator_func (fun(tbl: table<K, V>) : (fun(tbl: table<K, V>, index: K | nil) : K, V))
-	---@param config lua-term.components.loop.config.create | nil
-	---@return fun(table: table<K, V>, index: K | nil) : K, V
-	---@return T
-	function _loop.iterator(id, parent, tbl, iterator_func, config)
+	---@param config lua-term.components.loop_with_end.config.create
+	---@return fun(table: table<K, V>, index: K | nil) : K, V iterator
+	---@return T tbl
+	---@return any | nil first_index
+	function _loop_with_end.iterator(id, parent, tbl, iterator_func, config)
 	    config = config or {}
 
-	    --//TODO: we only want to iterate want we need idealy
-	    local value_pairs = {}
-	    if not config.count then
+	    ---@type table, any
+	    local value_pairs, first_index
+	    if config.count then
+	        -- create the iterator
+	        iterator_func, value_pairs, first_index = iterator_func(tbl)
+	    else
+	        value_pairs = {}
 	        for index, value in iterator_func(tbl) do
 	            value_pairs[index] = value
 	        end
-
-	        config.count = utils.table.count(value_pairs)
+	        iterator_func = next
 	    end
 
-	    local loop = _loop.new(id, parent, config)
+	    local loop = _loop_with_end.new(id, parent, config)
+	    loop:show()
+
+	    local first_iter = true
 
 	    ---@generic K, V
 	    ---@param index K | nil
 	    ---@return K, V
 	    local function iterator(_, index)
-	        local key, value = next(value_pairs, index)
+	        local key, value = iterator_func(tbl, index)
 
-	        loop:iterate()
+	        if not first_iter then
+	            loop:iterate()
+	        else
+	            first_iter = false
+	        end
+
 	        if key == nil then
 	            loop:remove()
 	        end
 
 	        return key, value
 	    end
-	    return iterator, tbl
+
+	    return iterator, tbl, first_index
 	end
 
 	---@generic T : table, K, V
 	---@param id string
 	---@param parent lua-term.segment_parent
 	---@param tbl table<K, V>
-	---@param config lua-term.components.loop.config.create | nil
+	---@param config lua-term.components.loop_with_end.config.create
 	---@return fun(table: table<K, V>, index: K | nil) : K, V
 	---@return T
-	function _loop.pairs(id, parent, tbl, config)
-	    return _loop.iterator(id, parent, tbl, pairs, config)
+	function _loop_with_end.pairs(id, parent, tbl, config)
+	    return _loop_with_end.iterator(id, parent, tbl, pairs, config)
 	end
 
 	---@generic T : table, K, V
 	---@param id string
 	---@param parent lua-term.segment_parent
 	---@param tbl table<K, V>
-	---@param config lua-term.components.loop.config.create | nil
+	---@param config lua-term.components.loop_with_end.config.create
 	---@return fun(table: table<K, V>, index: K | nil) : K, V
 	---@return T
-	function _loop.ipairs(id, parent, tbl, config)
-	    return _loop.iterator(id, parent, tbl, ipairs, config)
+	function _loop_with_end.ipairs(id, parent, tbl, config)
+	    return _loop_with_end.iterator(id, parent, tbl, ipairs, config)
 	end
+
+	---@class lua-term.components.for_loop.config.create : lua-term.components.loop_with_end.config.create
+	---@field count nil
 
 	---@param id string
 	---@param parent lua-term.segment_parent
 	---@param start number
 	---@param _end number
 	---@param increment number | nil
-	---@param config lua-term.components.loop.config.create | nil
+	---@param config lua-term.components.for_loop.config.create | nil
 	---@return fun(_, index: integer) : integer, true
-	---@return table _ can be ignored
-	function _loop._for(id, parent, start, _end, increment, config)
+	function _loop_with_end._for(id, parent, start, _end, increment, config)
 	    increment = increment or 1
 	    config = config or {}
 	    config.count = _end
 
-	    local loop = _loop.new(id, parent, config)
+	    local loop = _loop_with_end.new(id, parent, config)
+	    loop:show()
 
 	    ---@param index integer | nil
 	    ---@return integer | nil
@@ -2355,23 +2422,10 @@ __bundler__.__files__["src.components.loop"] = function()
 	        end
 
 	        return index + 1, true
-	    end, {}
-	end
-
-	function _loop:iterate()
-	    self.loading_bar:changed_relativ(1)
-	    self.info_text:changed()
-
-	    if self.config.update_on_every_iteration then
-	        self.loading_line:update()
 	    end
 	end
 
-	function _loop:remove()
-	    self.loading_line:remove(self.config.update_on_remove)
-	end
-
-	return _loop
+	return _loop_with_end
 
 end
 
@@ -2387,6 +2441,8 @@ __bundler__.__files__["src.components.init"] = function()
 	---@field group lua-term.components.group
 	---
 	---@field stream lua-term.components.stream
+	---
+	---@field loop_with_end lua-term.components.loop_with_end
 	local components = {
 	    segment = __bundler__.__loadFile__("src.segment.init"),
 
@@ -2399,7 +2455,7 @@ __bundler__.__files__["src.components.init"] = function()
 
 	    stream = __bundler__.__loadFile__("src.components.stream"),
 
-	    loop = __bundler__.__loadFile__("src.components.loop")
+	    loop_with_end = __bundler__.__loadFile__("src.components.loop_with_end")
 	}
 
 	return components
