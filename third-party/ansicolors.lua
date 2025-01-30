@@ -80,16 +80,16 @@ ansicolors.cyan = makecolor("36")
 ansicolors.white = makecolor("37")
 ---@param color_code integer
 ansicolors.foreground_extended = function(color_code)
-    color_code = utils.value.clamp(color_code, 0, 255)
+    color_code = utils.number.clamp(color_code, 0, 255)
     return makecolor("38;5;" .. tostring(color_code))
 end
 ---@param red integer
 ---@param green integer
 ---@param blue integer
 ansicolors.foreground_24bit = function(red, green, blue)
-    red = utils.value.clamp(red, 0, 255)
-    green = utils.value.clamp(green, 0, 255)
-    blue = utils.value.clamp(blue, 0, 255)
+    red = utils.number.clamp(red, 0, 255)
+    green = utils.number.clamp(green, 0, 255)
+    blue = utils.number.clamp(blue, 0, 255)
     return makecolor(("38;2;%s;%s;%s"):format(red, green, blue))
 end
 
@@ -105,16 +105,16 @@ ansicolors.oncyan = makecolor("46")
 ansicolors.onwhite = makecolor("47")
 ---@param color_code integer
 ansicolors.background_extended = function(color_code)
-    color_code = utils.value.clamp(color_code, 0, 255)
+    color_code = utils.number.clamp(color_code, 0, 255)
     return makecolor("48;5;" .. tostring(color_code))
 end
 ---@param red integer
 ---@param green integer
 ---@param blue integer
 ansicolors.background_24bit = function(red, green, blue)
-    red = utils.value.clamp(red, 0, 255)
-    green = utils.value.clamp(green, 0, 255)
-    blue = utils.value.clamp(blue, 0, 255)
+    red = utils.number.clamp(red, 0, 255)
+    green = utils.number.clamp(green, 0, 255)
+    blue = utils.number.clamp(blue, 0, 255)
     return makecolor(("48;2;%s;%s;%s"):format(red, green, blue))
 end
 
