@@ -57,18 +57,22 @@ local test_tbl = {
     1, 1, 1, 1, 1,
     test = 1, test2 = 1, test3 = 1, test4 = 1, test5 = 1,
 }
-for _ in term.components.loop.pairs("test", terminal, test_tbl, {
-    show_iterations_per_second = true
+for _ in term.components.loop_with_end.pairs("test", terminal, test_tbl, {
+    show_iterations_per_second = true,
+    count = 10,
 }) do
     sleep(0.2)
 end
-for _ in term.components.loop.ipairs("test", terminal, test_tbl) do
-    sleep(0.5)
-end
-for _ in term.components.loop._for("test", terminal, 1, 1000, 1, {
-    show_iterations_per_second = true
+for _ in term.components.loop_with_end.ipairs("test", terminal, test_tbl, {
+    count = 5,
 }) do
-    sleep(0.0123)
+    sleep(0.15)
+end
+for _ in term.components.loop_with_end._for("test", terminal, 1, 1500, 1, {
+    show_iterations_per_second = true,
+    update_on_every_iterations = 10,
+}) do
+    sleep(0.005)
 end
 
 terminal:close()

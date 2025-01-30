@@ -4,22 +4,21 @@ local _line = require("src.components.line")
 local _segment = require("src.segment.init")
 local _loading = require("src.components.loading")
 
----@class lua-term.components.loop.config.create : lua-term.components.loading.config.create
+---@class lua-term.components.loop_with_end.config.create : lua-term.components.loading.config.create
 ---@field update_on_remove boolean | nil default is `true`
----@field update_on_every_iteration boolean | nil default is `true`
+---@field update_on_every_iterations integer | nil default is `true`
 ---@field show_progress_number boolean | nil default is `true`
 ---@field show_iterations_per_second boolean | nil default is `false`
 ---
----
----@field count integer | nil
+---@field count integer
 
 ---@class lua-term.components.loop.config : lua-term.components.loading.config
 ---@field update_on_remove boolean
----@field update_on_every_iteration boolean
+---@field update_on_every_iterations boolean
 ---@field show_progress_number boolean
 ---@field show_iterations_per_second boolean
 
----@class lua-term.components.loop
+---@class lua-term.components.loop_with_end
 ---@field stopwatch Freemaker.utils.stopwatch
 ---
 ---@field loading_line lua-term.components.line
@@ -27,21 +26,21 @@ local _loading = require("src.components.loading")
 ---@field info_text lua-term.segment
 ---
 ---@field config lua-term.components.loop.config
-local _loop = {}
+local _loop_with_end = {}
 
 ---@param id string
 ---@param parent lua-term.segment_parent
----@param config lua-term.components.loop.config.create
----@return lua-term.components.loop
-function _loop.new(id, parent, config)
+---@param config lua-term.components.loop_with_end.config.create
+---@return lua-term.components.loop_with_end
+function _loop_with_end.new(id, parent, config)
     config.update_on_remove = utils.value.default(config.update_on_remove, true)
-    config.update_on_every_iteration = utils.value.default(config.update_on_every_iteration, true)
+    config.update_on_every_iterations = utils.value.default(config.update_on_every_iterations, 1)
     config.show_progress_number = utils.value.default(config.show_progress_number, true)
     config.show_iterations_per_second = utils.value.default(config.show_iterations_per_second, false)
 
     local stopwatch = utils.stopwatch.start_new()
     local loading_line = _line.new(id, parent)
-    local loading_bar = _loading.new(id, loading_line, config)
+    local loading_bar = _loading.new(id .. "-loading_bar", loading_line, config)
     local info_text = _segment.new(id .. "-info", loading_line, function()
         local builder = utils.string.builder.new()
 
@@ -52,8 +51,11 @@ function _loop.new(id, parent, config)
         end
 
         if config.show_iterations_per_second then
-            local iterations_per_second = 1 / (stopwatch:lap() / 1000)
-            builder:append(" |", string.format("%.0f", iterations_per_second), "itr/s|")
+            local lap_time = stopwatch:lap()
+            if loading_bar.state ~= 0 then
+                local iterations_per_second = 1 / (lap_time / 1000) * config.update_on_every_iterations
+                builder:append(" |", string.format("%.1f", iterations_per_second), "itr/s|")
+            end
         end
 
         return builder:build()
@@ -67,10 +69,29 @@ function _loop.new(id, parent, config)
         info_text = info_text,
 
         config = config
-    }, { __index = _loop })
-
+    }, { __index = _loop_with_end })
 
     return instance
+end
+
+function _loop_with_end:iterate()
+    self.loading_bar:changed_relativ(1, false)
+
+    if self.loading_bar.state % self.config.update_on_every_iterations == 0 then
+        self.info_text:changed()
+        self.loading_line:update()
+    end
+end
+
+function _loop_with_end:show()
+    self.loading_bar:changed(nil, false)
+    self.info_text:changed(false)
+    self.loading_line:update()
+end
+
+function _loop_with_end:remove()
+    self.stopwatch:stop()
+    self.loading_line:remove(self.config.update_on_remove)
 end
 
 --- Will iterate over whole table if config.count not set
@@ -79,25 +100,30 @@ end
 ---@param parent lua-term.segment_parent
 ---@param tbl table<K, V>
 ---@param iterator_func (fun(tbl: table<K, V>) : (fun(tbl: table<K, V>, index: K | nil) : K, V))
----@param config lua-term.components.loop.config.create | nil
----@return fun(table: table<K, V>, index: K | nil) : K, V
----@return T
-function _loop.iterator(id, parent, tbl, iterator_func, config)
+---@param config lua-term.components.loop_with_end.config.create
+---@return fun(table: table<K, V>, index: K | nil) : K, V iterator
+---@return T tbl
+---@return any | nil first_index
+function _loop_with_end.iterator(id, parent, tbl, iterator_func, config)
     config = config or {}
 
-    if not config.count then
-        local value_pairs = {}
+    ---@type table, any
+    local value_pairs, first_index
+    if config.count then
+        -- create the iterator
+        iterator_func, value_pairs, first_index = iterator_func(tbl)
+    else
+        value_pairs = {}
         for index, value in iterator_func(tbl) do
             value_pairs[index] = value
         end
-
         iterator_func = next
-        tbl = value_pairs
-
-        config.count = utils.table.count(value_pairs)
     end
 
-    local loop = _loop.new(id, parent, config)
+    local loop = _loop_with_end.new(id, parent, config)
+    loop:show()
+
+    local first_iter = true
 
     ---@generic K, V
     ---@param index K | nil
@@ -105,52 +131,61 @@ function _loop.iterator(id, parent, tbl, iterator_func, config)
     local function iterator(_, index)
         local key, value = iterator_func(tbl, index)
 
-        loop:iterate()
+        if not first_iter then
+            loop:iterate()
+        else
+            first_iter = false
+        end
+
         if key == nil then
             loop:remove()
         end
 
         return key, value
     end
-    return iterator, tbl
+
+    return iterator, tbl, first_index
 end
 
 ---@generic T : table, K, V
 ---@param id string
 ---@param parent lua-term.segment_parent
 ---@param tbl table<K, V>
----@param config lua-term.components.loop.config.create | nil
+---@param config lua-term.components.loop_with_end.config.create
 ---@return fun(table: table<K, V>, index: K | nil) : K, V
 ---@return T
-function _loop.pairs(id, parent, tbl, config)
-    return _loop.iterator(id, parent, tbl, pairs, config)
+function _loop_with_end.pairs(id, parent, tbl, config)
+    return _loop_with_end.iterator(id, parent, tbl, pairs, config)
 end
 
 ---@generic T : table, K, V
 ---@param id string
 ---@param parent lua-term.segment_parent
 ---@param tbl table<K, V>
----@param config lua-term.components.loop.config.create | nil
+---@param config lua-term.components.loop_with_end.config.create
 ---@return fun(table: table<K, V>, index: K | nil) : K, V
 ---@return T
-function _loop.ipairs(id, parent, tbl, config)
-    return _loop.iterator(id, parent, tbl, ipairs, config)
+function _loop_with_end.ipairs(id, parent, tbl, config)
+    return _loop_with_end.iterator(id, parent, tbl, ipairs, config)
 end
+
+---@class lua-term.components.for_loop.config.create : lua-term.components.loop_with_end.config.create
+---@field count nil
 
 ---@param id string
 ---@param parent lua-term.segment_parent
 ---@param start number
 ---@param _end number
 ---@param increment number | nil
----@param config lua-term.components.loop.config.create | nil
+---@param config lua-term.components.for_loop.config.create | nil
 ---@return fun(_, index: integer) : integer, true
----@return table _ can be ignored
-function _loop._for(id, parent, start, _end, increment, config)
+function _loop_with_end._for(id, parent, start, _end, increment, config)
     increment = increment or 1
     config = config or {}
     config.count = _end
 
-    local loop = _loop.new(id, parent, config)
+    local loop = _loop_with_end.new(id, parent, config)
+    loop:show()
 
     ---@param index integer | nil
     ---@return integer | nil
@@ -172,21 +207,7 @@ function _loop._for(id, parent, start, _end, increment, config)
         end
 
         return index + 1, true
-    end, {}
-end
-
-function _loop:iterate()
-    self.loading_bar:changed_relativ(1)
-    self.info_text:changed()
-
-    if self.config.update_on_every_iteration then
-        self.loading_line:update()
     end
 end
 
-function _loop:remove()
-    self.stopwatch:stop()
-    self.loading_line:remove(self.config.update_on_remove)
-end
-
-return _loop
+return _loop_with_end

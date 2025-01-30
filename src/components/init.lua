@@ -9,6 +9,8 @@
 ---@field group lua-term.components.group
 ---
 ---@field stream lua-term.components.stream
+---
+---@field loop_with_end lua-term.components.loop_with_end
 local components = {
     segment = require("src.segment.init"),
 
@@ -21,7 +23,7 @@ local components = {
 
     stream = require("src.components.stream"),
 
-    loop = require("src.components.loop")
+    loop_with_end = require("src.components.loop_with_end")
 }
 
 return components

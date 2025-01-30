@@ -71,10 +71,13 @@ function loading:requested_update()
     self.m_segment:requested_update()
 end
 
----@param state integer
+---@param state integer | nil
 ---@param update boolean | nil
 function loading:changed(state, update)
-    self.state = state
+    if state then
+        self.state = state
+    end
+
     self.m_segment:changed(utils.value.default(update, true))
 end
 
