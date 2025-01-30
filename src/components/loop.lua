@@ -73,6 +73,7 @@ function _loop.new(id, parent, config)
     return instance
 end
 
+--- Will iterate over whole table if config.count not set
 ---@generic T : table, K, V
 ---@param id string
 ---@param parent lua-term.segment_parent
@@ -84,12 +85,14 @@ end
 function _loop.iterator(id, parent, tbl, iterator_func, config)
     config = config or {}
 
-    --//TODO: we only want to iterate want we need idealy
-    local value_pairs = {}
     if not config.count then
+        local value_pairs = {}
         for index, value in iterator_func(tbl) do
             value_pairs[index] = value
         end
+
+        iterator_func = next
+        tbl = value_pairs
 
         config.count = utils.table.count(value_pairs)
     end
@@ -100,7 +103,7 @@ function _loop.iterator(id, parent, tbl, iterator_func, config)
     ---@param index K | nil
     ---@return K, V
     local function iterator(_, index)
-        local key, value = next(value_pairs, index)
+        local key, value = iterator_func(tbl, index)
 
         loop:iterate()
         if key == nil then
@@ -182,6 +185,7 @@ function _loop:iterate()
 end
 
 function _loop:remove()
+    self.stopwatch:stop()
     self.loading_line:remove(self.config.update_on_remove)
 end
 
