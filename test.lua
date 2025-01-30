@@ -13,20 +13,20 @@ local terminal = term.terminal.stdout()
 -- terminal.show_ids = true
 -- terminal.show_lines = true
 
-local handle, err_msg = io.popen("ping 1.1.1.1", "r")
-if not handle then
-    error(err_msg)
-end
+-- local handle, err_msg = io.popen("ping 1.1.1.1", "r")
+-- if not handle then
+--     error(err_msg)
+-- end
 
-local stream = term.components.stream.new("<stream>", terminal, handle, {
-    before = term.colors.foreground_24bit(100, 100, 100) .. ">  ",
-    after = term.colors.reset
-})
-stream:read_all()
+-- local stream = term.components.stream.new("<stream>", terminal, handle, {
+--     before = term.colors.foreground_24bit(100, 100, 100) .. ">  ",
+--     after = term.colors.reset
+-- })
+-- stream:read_all()
 
-sleep(5)
-stream:remove()
-handle:close()
+-- sleep(5)
+-- stream:remove()
+-- handle:close()
 
 local test_tbl = {
     1, 1, 1, 1, 1,
@@ -50,6 +50,7 @@ for _ in term.components.loop_with_end._for("test", terminal, 1, 1500, 1, {
     sleep(0.005)
 end
 
+terminal:clear()
 terminal:close()
 
 print("## END ##")

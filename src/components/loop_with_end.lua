@@ -50,12 +50,12 @@ function _loop_with_end.new(id, parent, config)
             builder:append(" <", count_str, "/", state_str, ">")
         end
 
-        if config.show_iterations_per_second then
-            local lap_time = stopwatch:lap()
-            if loading_bar.state ~= 0 then
-                local iterations_per_second = 1 / (lap_time / 1000) * config.update_on_every_iterations
-                builder:append(" |", string.format("%.1f", iterations_per_second), "itr/s|")
-            end
+        if config.show_iterations_per_second and loading_bar.state ~= 0 then
+            local avg_update_time_seconds = stopwatch:avg_lap() / 1000
+            parent:print(avg_update_time_seconds)
+            local avg_updates_per_second = 1 / avg_update_time_seconds
+            local avg_iterations_per_second = avg_updates_per_second * config.update_on_every_iterations
+            builder:append(" |", string.format("%.1f", avg_iterations_per_second), "itr/s|")
         end
 
         return builder:build()
@@ -74,7 +74,7 @@ function _loop_with_end.new(id, parent, config)
     return instance
 end
 
-function _loop_with_end:iterate()
+function _loop_with_end:increment()
     self.loading_bar:changed_relativ(1, false)
 
     if self.loading_bar.state % self.config.update_on_every_iterations == 0 then
@@ -132,7 +132,7 @@ function _loop_with_end.iterator(id, parent, tbl, iterator_func, config)
         local key, value = iterator_func(tbl, index)
 
         if not first_iter then
-            loop:iterate()
+            loop:increment()
         else
             first_iter = false
         end
@@ -199,7 +199,7 @@ function _loop_with_end._for(id, parent, start, _end, increment, config)
             return start, true
         end
 
-        loop:iterate()
+        loop:increment()
 
         if index == _end then
             loop:remove()

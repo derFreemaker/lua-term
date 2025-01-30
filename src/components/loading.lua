@@ -75,7 +75,7 @@ end
 ---@param update boolean | nil
 function loading:changed(state, update)
     if state then
-        self.state = state
+        self.state = utils.number.clamp(state, 0, self.config.count)
     end
 
     self.m_segment:changed(utils.value.default(update, true))
@@ -84,8 +84,7 @@ end
 ---@param state integer
 ---@param update boolean | nil
 function loading:changed_relativ(state, update)
-    self.state = self.state + state
-    self.m_segment:changed(utils.value.default(update, true))
+    self:changed(self.state + state, update)
 end
 
 ---@param update boolean | nil
