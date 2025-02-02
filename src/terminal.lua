@@ -8,84 +8,86 @@ local io_type = io.type
 local table_insert = table.insert
 local table_remove = table.remove
 
-local entry_class = require("src.segment.entry")
+local _segment_parent = require("src.segment.parent")
 local _text = require("src.components.text")
 
 --//TODO: rewrite entire entity and cache system
 --//TODO: currently 2+ caching of same line
 
 ---@class lua-term.render_context
----@field show_ids boolean
+---@field show_id boolean
+---
+---@field height integer
+---@field width integer
+---
+---@field position_changed boolean
 
----@class lua-term.terminal : lua-term.segment_parent
----@field show_ids boolean | nil
----@field show_lines boolean | nil
+---@class lua-term.terminal : object, lua-term.segment_parent
+---@field show_ids boolean
+---@field show_lines boolean
 ---
 ---@field private m_stream file*
 ---
----@field private m_segments lua-term.segment_entry[]
+---@field private m_segments lua-term.segment_interface[]
 ---
 ---@field private m_org_print function
 ---@field private m_cursor_pos integer
-local terminal = {}
+---@overload fun(stream: file*) : lua-term.terminal
+local _terminal = {}
 
+---@alias lua-term.terminal.__con fun(stream: file*) : lua-term.terminal
+
+---@deprecated
+---@private
+---@param super lua-term.segment_parent.__init
 ---@param stream file*
----@return lua-term.terminal
-function terminal.new(stream)
+function _terminal:__init(super, stream)
+    super()
+
     if io_type(stream) ~= "file" then
         error("stream is not valid")
     end
-
     stream:write("\27[?7l")
-    return setmetatable({
-        m_stream = stream,
-        m_segments = {},
-        m_cursor_pos = 1,
-    }, { __index = terminal })
+
+    self.show_ids = false
+    self.show_lines = false
+
+    self.m_stream = stream
+    self.m_segments = {}
+    self.m_cursor_pos = 1
 end
 
-local stdout_terminal
----@return lua-term.terminal
-function terminal.stdout()
-    if stdout_terminal then
-        return stdout_terminal
-    end
-
-    stdout_terminal = terminal.new(io.stdout)
-    return stdout_terminal
-end
-
-function terminal:close()
+function _terminal:close()
     self.m_stream:write("\27[?7h")
 end
 
 ---@param ... any
----@return lua-term.segment
-function terminal:print(...)
-    return _text.print(self, ...)
+---@return lua-term.components.text
+function _terminal:print(...)
+    return _text.static__print(self, ...)
 end
 
-function terminal:add_segment(id, segment)
-    local entry = entry_class.new(id, segment)
-    table_insert(self.m_segments, entry)
+function _terminal:add_child(segment)
+    table_insert(self.m_segments, segment)
 end
 
-function terminal:remove_child(child)
-    for index, entry in ipairs(self.m_segments) do
-        if entry:has_segment(child) then
+function _terminal:remove_child(child)
+    for index, segment in ipairs(self.m_segments) do
+        if segment == child then
             table_remove(self.m_segments, index)
+            break
         end
     end
 end
 
-function terminal:clear()
+function _terminal:clear()
     self.m_segments = {}
     self:update()
 end
 
 ---@private
 ---@param line integer
-function terminal:jump_to_line(line)
+function _terminal:jump_to_line(line)
     local jump_lines = line - self.m_cursor_pos
     if jump_lines == 0 then
         return
@@ -99,43 +101,28 @@ function terminal:jump_to_line(line)
     self.m_cursor_pos = line
 end
 
-function terminal:update()
-    local line_buffer_pos = 1
-    ---@type table<integer, string>
-    local line_buffer = {}
+function _terminal:update()
+    local buffer = {}
+    local buffer_pos = 0
 
     for _, segment in ipairs(self.m_segments) do
-        if not self.show_ids and not segment:requested_update() then
-            if segment.line ~= line_buffer_pos then
-                for index, line in ipairs(segment.lines) do
-                    line_buffer[line_buffer_pos + index - 1] = line
-                end
+        ---@type lua-term.render_context
+        local context = {
+            show_id = self.show_ids,
+            height = 30,
+            width = 80,
+            position_changed = segment:get_info().line ~= buffer_pos
+        }
 
-                segment.line = line_buffer_pos
-            end
-        else
-            local context = {
-                show_ids = self.show_ids
-            }
-            local update_lines = segment:pre_render(context)
+        local update_buffer, length = segment:render(context)
 
-            if segment.line ~= line_buffer_pos then
-                for index, line in ipairs(segment.lines) do
-                    line_buffer[line_buffer_pos + index - 1] = line
-                end
-            else
-                for index, line in pairs(update_lines) do
-                    line_buffer[line_buffer_pos + index - 1] = line
-                end
-            end
-
-            segment.line = line_buffer_pos
+        for index, line in pairs(update_buffer) do
+            buffer[buffer_pos + index] = line
         end
-
-        line_buffer_pos = line_buffer_pos + segment.lines_count
+        buffer_pos = buffer_pos + length
     end
 
-    for line, content in pairs(line_buffer) do
+    for line, content in pairs(buffer) do
         self:jump_to_line(line)
 
         self.m_stream:write(erase.line())
@@ -149,8 +136,8 @@ function terminal:update()
     end
 
     if #self.m_segments > 0 then
-        local last_segment = self.m_segments[#self.m_segments]
-        self:jump_to_line(last_segment.line + last_segment.lines_count)
+        local last_segment = self.m_segments[#self.m_segments]:get_info()
+        self:jump_to_line(last_segment.line + last_segment.length)
     else
         self:jump_to_line(1)
     end
@@ -159,4 +146,8 @@ function terminal:update()
     self.m_stream:flush()
 end
 
-return terminal
+return class("lua-term.terminal", _terminal, {
+    inherit = {
+        _segment_parent
+    }
+})

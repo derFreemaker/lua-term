@@ -1,16 +1,16 @@
 ---@class lua-term.components
----@field segment lua-term.segment
+---@field segment lua-term.segment.__con
 ---
 ---@field text lua-term.components.text
----@field loading lua-term.components.loading
----@field throbber lua-term.components.throbber
+----@field loading lua-term.components.loading
+----@field throbber lua-term.components.throbber
 ---
----@field line lua-term.components.line
+----@field line lua-term.components.line
 ---@field group lua-term.components.group
 ---
----@field stream lua-term.components.stream
+----@field stream lua-term.components.stream
 ---
----@field loop_with_end lua-term.components.loop_with_end
+----@field loop_with_end lua-term.components.loop_with_end
 local components = {
     segment = require("src.segment.init"),
 

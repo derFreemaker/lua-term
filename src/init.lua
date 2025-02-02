@@ -1,11 +1,10 @@
---- meta files
-require("src.segment.interface")
-require("src.segment.parent")
+-- load class system
+require("misc.class_system")
 
 ---@class lua-term
 ---@field colors ansicolors
 ---
----@field terminal lua-term.terminal
+---@field terminal lua-term.terminal.__con
 ---@field components lua-term.components
 local term = {
     colors = require("third-party.ansicolors"),

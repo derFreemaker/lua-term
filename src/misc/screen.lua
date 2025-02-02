@@ -20,10 +20,10 @@ local state = {
 ---
 ---@field private m_state lua-term.screen.state
 ---@field private m_buffer string | nil
-local screen_class = {}
+local _screen = {}
 
 ---@param read_char_func fun() : string | nil
-function screen_class.new(read_char_func)
+function _screen.new(read_char_func)
     return setmetatable({
         m_read_char_func = read_char_func,
 
@@ -33,13 +33,13 @@ function screen_class.new(read_char_func)
         m_changed = {},
 
         m_state = state.Normal
-    }, { __index = screen_class })
+    }, { __index = _screen })
 end
 
 ---@private
 ---@param line integer
 ---@return lua-term.screen.line
-function screen_class:get_line(line)
+function _screen:get_line(line)
     local _line = self.m_screen[line]
     if not _line then
         _line = { length = 0 }
@@ -48,17 +48,17 @@ function screen_class:get_line(line)
     return _line
 end
 
-function screen_class:get_height()
+function _screen:get_height()
     return #self.m_screen
 end
 
 ---@return (string[]|nil)[]
-function screen_class:get_screen()
+function _screen:get_screen()
     return self.m_screen
 end
 
 ---@return table<integer, string>
-function screen_class:get_changed()
+function _screen:get_changed()
     ---@type table<integer, string>
     local buffer = {}
     for line in pairs(self.m_changed) do
@@ -67,14 +67,14 @@ function screen_class:get_changed()
     return buffer
 end
 
-function screen_class:clear_changed()
+function _screen:clear_changed()
     self.m_changed = {}
 end
 
 ---@private
 ---@param dx integer
 ---@param dy integer
-function screen_class:move_cursor(dx, dy)
+function _screen:move_cursor(dx, dy)
     self.m_cursor_x = math.max(1, self.m_cursor_x + dx)
     self.m_cursor_y = math.max(1, self.m_cursor_y + dy)
 end
@@ -92,7 +92,7 @@ end
 
 ---@private
 ---@param command string
-function screen_class:execute_ansi_escape_code(command)
+function _screen:execute_ansi_escape_code(command)
     local params = parse_ansi_escape_code_params(self.m_buffer:sub(3, -1)) -- Extract parameters
 
     -- Process the command
@@ -134,7 +134,7 @@ end
 
 ---@private
 ---@param buffer string
-function screen_class:write(buffer)
+function _screen:write(buffer)
     for i = 1, #buffer do
         local char = buffer:sub(i, i)
 
@@ -156,7 +156,7 @@ function screen_class:write(buffer)
 end
 
 ---@return string | nil char
-function screen_class:process_char()
+function _screen:process_char()
     local char = self.m_read_char_func()
     if not char then
         return nil
@@ -196,7 +196,7 @@ function screen_class:process_char()
 end
 
 ---@return string
-function screen_class:to_string()
+function _screen:to_string()
     local pos_y = 0
     local result = {}
     for y, row in pairs(self.m_screen) do
@@ -224,4 +224,4 @@ function screen_class:to_string()
     return table.concat(result, "\n")
 end
 
-return screen_class
+return _screen
