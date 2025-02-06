@@ -13,9 +13,6 @@ local _entry = require("src.segment.entry")
 
 local _text = require("src.components.text")
 
---//TODO: rewrite entire entity and cache system
---//TODO: currently 2+ caching of same line
-
 ---@class lua-term.render_context
 ---@field show_id boolean
 ---

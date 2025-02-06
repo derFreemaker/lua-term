@@ -1,30 +1,34 @@
--- local utils = require("misc.utils")
--- local table_insert = table.insert
--- local table_remove = table.remove
--- local table_concat = table.concat
+local utils = require("misc.utils")
+local table_insert = table.insert
+local table_remove = table.remove
+local table_concat = table.concat
 
--- local _text_segment = require("src.components.text")
+local _segment_interface = require("src.segment.interface")
+local _segment_parent = require("src.segment.parent")
 
--- ---@class lua-term.components.line : lua-term.segment_interface, lua-term.segment_parent
--- ---@field private m_requested_update boolean
--- ---@field private m_childs lua-term.segment_entry[]
--- ---@field private m_parent lua-term.segment_parent
--- local line_class = {}
+local _text_segment = require("src.components.text")
 
--- ---@param id string
--- ---@param parent lua-term.segment_parent
--- ---@return lua-term.components.line
--- function line_class.new(id, parent)
---     local instance = setmetatable({
---         m_childs = {},
---         m_requested_update = false,
+---@class lua-term.components.line : lua-term.segment.interface, lua-term.segment.parent
+---@field private m_id string
+---
+---@field private m_requested_update boolean
+---
+---@field private m_parent lua-term.segment.parent
+local _line = {}
 
---         m_parent = parent,
---     }, { __index = line_class })
---     parent:add_segment(id, instance)
+---@deprecated
+---@private
+---@param id string
+---@param parent lua-term.segment.parent
+function _line:__init(id, parent)
+    self.m_id = id
+    self.m_requested_update = true
+end
 
---     return instance
--- end
+---@return string
+function _line:get_id()
+    return self.m_id
+end
 
 -- ---@param context lua-term.render_context
 -- ---@return table<integer, string> update_buffer
@@ -107,4 +111,9 @@
 --     self.m_requested_update = true
 -- end
 
--- return line_class
+return class("lua-term.components.line", _line, {
+    inherit = {
+        _segment_interface,
+        _segment_parent,
+    }
+})
