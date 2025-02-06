@@ -16,33 +16,31 @@ local _segment_interface = require("src.segment.interface")
 
 ---@alias lua-term.segment.func (fun() : table<integer, string>, integer)
 
----@class lua-term.segment : object, lua-term.segment_interface
+---@class lua-term.segment : object, lua-term.segment.interface
 ---@field id string
 ---
----@field m_showing_id boolean
 ---@field m_requested_update boolean
 ---
 ---@field private m_content string[]
 ---@field private m_content_length integer
 ---@field private m_func lua-term.segment.func
 ---
----@field private m_parent lua-term.segment_parent
----@overload fun(id: string, parent: lua-term.segment_parent, func: lua-term.segment.func) : lua-term.segment
+---@field private m_parent lua-term.segment.parent
+---@overload fun(id: string, parent: lua-term.segment.parent, func: lua-term.segment.func) : lua-term.segment
 local _segment = {}
 
----@alias lua-term.segment.__init fun(id: string, parent: lua-term.segment_parent, func: lua-term.segment.func)
----@alias lua-term.segment.__con fun(id: string, parent: lua-term.segment_parent, func: lua-term.segment.func) : lua-term.segment
+---@alias lua-term.segment.__init fun(id: string, parent: lua-term.segment.parent, func: lua-term.segment.func)
+---@alias lua-term.segment.__con fun(id: string, parent: lua-term.segment.parent, func: lua-term.segment.func) : lua-term.segment
 
 ---@deprecated
 ---@private
 ---@param id string
----@param parent lua-term.segment_parent
+---@param parent lua-term.segment.parent
 ---@param func lua-term.segment.func
 function _segment:__init(id, parent, func)
     self.id = id
 
     self.m_requested_update = true
-    self.m_showing_id = false
 
     self.m_content = {}
     self.m_content_length = 0
@@ -79,6 +77,16 @@ end
 
 -- lua-term.segment_interface
 
+---@return string
+function _segment:get_id()
+    return self.id
+end
+
+---@return integer
+function _segment:get_length()
+    return self.m_content_length
+end
+
 ---@return boolean
 function _segment:requested_update()
     return self.m_requested_update
@@ -91,9 +99,9 @@ local function create_render_function(render_func)
         local buffer, lines = render_func()
 
         assert(type(buffer) == "table",
-            "no buffer return from render function (#1 return value)")
+            "no buffer (string[]) returned from render function (#1 return value)")
         assert(math.type(lines) == "integer",
-            "no lines count return from render function (#2 return value)")
+            "no lines count (integer) returned from render function (#2 return value)")
 
         return buffer, lines
     end
@@ -102,7 +110,6 @@ end
 ---@return table<integer, string> update_buffer
 ---@return integer lines
 function _segment:render(context)
-    local buffer, length
     if self.m_requested_update then
         self.m_requested_update = false
 
@@ -123,45 +130,11 @@ function _segment:render(context)
         end
         ---@cast buffer_or_msg -string
 
-        buffer = buffer_or_msg
-        length = buffer_length
+        self.m_content = buffer_or_msg
+        self.m_content_length = buffer_length
     end
 
-    if self.m_showing_id then
-        for i = 1, length, 1 do
-            self.m_content[i + 1] = buffer[i]
-        end
-        self.m_content_length = length + 2
-    else
-        for i = 1, length, 1 do
-            self.m_content[i] = buffer[i]
-        end
-        self.m_content_length = length
-    end
-
-    if context.show_id ~= self.m_showing_id then
-        if context.show_id then
-            self.m_content_length = self.m_content_length + 2
-
-            local id_str = "---- '" .. self.id .. "' "
-            id_str = id_str .. string_rep("-", 80 - id_str:len())
-            table_insert(self.m_content, 1, string_rep("-", 80 - id_str))
-            table_insert(self.m_content, string_rep("-", 80))
-        else
-            self.m_content_length = self.m_content_length - 2
-
-            table_remove(self.m_content, 1)
-            table_remove(self.m_content, self.m_content_length + 1)
-        end
-
-        self.m_showing_id = context.show_id
-    end
-
-    if context.position_changed then
-        return self.m_content, self.m_content_length
-    end
-
-    return buffer, length
+    return self.m_content, self.m_content_length
 end
 
 return class("lua-term.segment", _segment, {

@@ -1,22 +1,31 @@
 local utils = require("misc.utils")
 
----@class lua-term.components.group : lua-term.segment_parent, lua-term.segment_interface
+---@class lua-term.components.group : lua-term.segment.parent, lua-term.segment.interface
+---@field id string
+---
 ---@field private m_requested_update boolean
----@field private m_parent lua-term.segment_parent
----@overload fun(id: string, parent: lua-term.segment_parent) : lua-term.components.group
+---@field private m_content_length integer
+---
+---@field private m_parent lua-term.segment.parent
+---@overload fun(id: string, parent: lua-term.segment.parent) : lua-term.components.group
 local _group = {}
 
----@alias lua-term.components.group.__init fun(id: string, parent: lua-term.segment_parent)
+---@alias lua-term.components.group.__init fun(id: string, parent: lua-term.segment.parent)
+---@alias lua-term.components.group.__con fun(id: string, parent: lua-term.segment.parent) : lua-term.components.group
 
 ---@deprecated
 ---@private
----@param super lua-term.segment_parent.__init
+---@param super lua-term.segment.parent.__init
 ---@param id string
----@param parent lua-term.segment_parent
+---@param parent lua-term.segment.parent
 function _group:__init(super, id, parent)
     super()
 
+    self.id = id
+
     self.m_requested_update = false
+    self.m_content_length = 0
+
     self.m_parent = parent
 
     parent:add_child(self)
@@ -46,29 +55,57 @@ end
 
 -- lua-term.segment_interface
 
+---@return string
+function _group:get_id()
+    return self.id
+end
+
+---@return integer
+function _group:get_length()
+    return self.m_content_length
+end
+
+---@return boolean
 function _group:requested_update()
     if self.m_requested_update then
         return true
     end
 
     for _, child in ipairs(self.m_childs) do
-        if child:get_info().requested_update then
+        if child:requested_update() then
             return true
         end
     end
+
+    return false
 end
 
 ---@return table<integer, string> update_buffer
----@return integer lines
+---@return integer length
 function _group:render(context)
     self.m_requested_update = false
     if #self.m_childs == 0 then
         return {}, 0
     end
 
-    for _, segment in ipairs(self.m_childs) do
+    local group_buffer, group_buffer_pos = {}, 1
+    for _, entry in ipairs(self.m_childs) do
+        ---@type lua-term.render_context
+        local child_context = {
+            show_id = context.show_id,
+            height = context.height,
+            width = context.width,
+            position_changed = entry:get_line() ~= group_buffer_pos
+        }
+        local buffer, length = entry:render(child_context)
+        entry:set_line(group_buffer_pos)
 
+        group_buffer[group_buffer_pos] = buffer
+        group_buffer_pos = group_buffer_pos + length
     end
+
+    self.m_content_length = group_buffer_pos - 1
+    return group_buffer, self.m_content_length
 end
 
 return class("lua-term.components.group", _group, {

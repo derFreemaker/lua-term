@@ -1,3 +1,6 @@
+local table_insert = table.insert
+local table_concat = table.concat
+
 local make_term_func = require("src.misc.maketermfunc")
 
 ---@class lua-term.cursor

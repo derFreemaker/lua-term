@@ -10,8 +10,8 @@ package.path = "./?.lua;" .. package.path
 local term = require("src.init")
 
 local terminal = term.terminal(io.stdout)
--- terminal.show_ids = true
--- terminal.show_lines = true
+terminal.show_ids = true
+terminal.show_lines = true
 
 -- local handle, err_msg = io.popen("ping 1.1.1.1", "r")
 -- if not handle then
@@ -50,9 +50,12 @@ local terminal = term.terminal(io.stdout)
 --     sleep(0.005)
 -- end
 
-terminal:print("test", "test2")
-terminal:print("test2", "test")
-terminal:update()
+for i = 1, 2, 1 do
+    local group = term.components.group("test-group", terminal)
+    term.components.text("test", group, "lol")
+    term.components.text("test2", group, "lol2")
+    terminal:update()
+end
 
 sleep(3)
 

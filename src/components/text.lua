@@ -5,17 +5,20 @@ local table_concat = table.concat
 
 local _segment = require("src.segment.init")
 
----@class lua-term.components.text : object, lua-term.segment_interface
+---@class lua-term.components.text : object, lua-term.segment.interface
 ---@field private m_text string[]
 ---@field private m_text_length integer
 ---@field private m_segment lua-term.segment
----@overload fun(id: string, parent: lua-term.segment_parent, text: string) : lua-term.components.text
+---@overload fun(id: string, parent: lua-term.segment.parent, text: string) : lua-term.components.text
 local _text = {}
+
+---@alias lua-term.components.text.__init fun(id: string, parent: lua-term.segment.parent, text: string)
+---@alias lua-term.components.text.__con fun(id: string, parent: lua-term.segment.parent, text: string) : lua-term.components.text
 
 ---@deprecated
 ---@private
 ---@param id string
----@param parent lua-term.segment_parent
+---@param parent lua-term.segment.parent
 ---@param text string
 function _text:__init(id, parent, text)
     self.m_text = utils.string.split(text, "\n", true)
@@ -26,7 +29,7 @@ function _text:__init(id, parent, text)
     end)
 end
 
----@param parent lua-term.segment_parent
+---@param parent lua-term.segment.parent
 ---@param ... any
 ---@return lua-term.components.text
 function _text.static__print(parent, ...)
@@ -54,6 +57,15 @@ function _text:change(text, update)
 end
 
 -- lua-term.segment_interface
+
+---@return string
+function _text:get_id()
+    return self.m_segment:get_id()
+end
+
+function _text:get_length()
+    return self.m_segment:get_length()
+end
 
 ---@return boolean update_requested
 function _text:requested_update()
