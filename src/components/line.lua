@@ -6,8 +6,6 @@ local table_concat = table.concat
 local _segment_interface = require("src.segment.interface")
 local _segment_parent = require("src.segment.parent")
 
-local _text_segment = require("src.components.text")
-
 ---@class lua-term.components.line : lua-term.segment.interface, lua-term.segment.parent
 ---@field private m_id string
 ---

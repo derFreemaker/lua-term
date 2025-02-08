@@ -4,7 +4,6 @@ local utils = require("misc.utils")
 ---@field id string
 ---
 ---@field private m_requested_update boolean
----@field private m_content_length integer
 ---
 ---@field private m_parent lua-term.segment.parent
 ---@overload fun(id: string, parent: lua-term.segment.parent) : lua-term.components.group
@@ -24,17 +23,17 @@ function _group:__init(super, id, parent)
     self.id = id
 
     self.m_requested_update = false
-    self.m_content_length = 0
 
     self.m_parent = parent
+
+    -- lua-term.segment.interface
+    self.m_content_length = 0
 
     parent:add_child(self)
 end
 
 ---@param update boolean | nil
 function _group:remove(update)
-    update = utils.value.default(update, true)
-
     self.m_parent:remove_child(self)
 
     if update then
@@ -58,11 +57,6 @@ end
 ---@return string
 function _group:get_id()
     return self.id
-end
-
----@return integer
-function _group:get_length()
-    return self.m_content_length
 end
 
 ---@return boolean
