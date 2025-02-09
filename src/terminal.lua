@@ -146,7 +146,7 @@ function _terminal:update()
         }
 
         local buffer, length = segment:render(context)
-        terminal_buffer[terminal_buffer_pos] = buffers
+        terminal_buffer[terminal_buffer_pos] = buffer
 
         segment:set_line(terminal_buffer_pos)
         terminal_buffer_pos = terminal_buffer_pos + length
