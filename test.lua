@@ -78,6 +78,5 @@ terminal:update()
 sleep(3)
 
 terminal:clear()
-terminal:close()
 
 print("## END ##")

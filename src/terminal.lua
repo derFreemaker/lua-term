@@ -22,39 +22,62 @@ local _text = require("src.components.text")
 
 ---@alias lua-term.render_buffer table<integer, string | lua-term.render_buffer>
 
+---@class lua-term.terminal.callbacks.create
+---@field write fun(...: string)
+---@field write_line fun(...: string) | nil
+---@field flush fun() | nil
+---
+---@field erase_line fun()
+---@field erase_till_end fun()
+---
+---@field go_to_line fun(line: integer)
+
+---@class lua-term.terminal.callbacks
+---@field write fun(...: string)
+---@field write_line fun(...: string)
+---@field flush fun()
+---
+---@field erase_line fun()
+---@field erase_till_end fun()
+---
+---@field go_to_line fun(line: integer)
+
 ---@class lua-term.terminal : object, lua-term.segment.parent
 ---@field show_ids boolean
 ---@field show_lines boolean
 ---
----@field private m_stream file*
+---@field private m_callbacks lua-term.terminal.callbacks
 ---
 ---@field private m_cursor_pos integer
----@overload fun(stream: file*) : lua-term.terminal
+---@overload fun(callbacks: lua-term.terminal.callbacks.create) : lua-term.terminal
 local _terminal = {}
 
----@alias lua-term.terminal.__con fun(stream: file*) : lua-term.terminal
+---@alias lua-term.terminal.__con fun(callbacks: lua-term.terminal.callbacks.create) : lua-term.terminal
 
 ---@deprecated
 ---@private
 ---@param super lua-term.segment.parent.__init
----@param stream file*
-function _terminal:__init(super, stream)
+---@param callbacks lua-term.terminal.callbacks.create
+function _terminal:__init(super, callbacks)
     super()
-
-    if io_type(stream) ~= "file" then
-        error("stream is not valid")
-    end
-    stream:write("\27[?7l") -- disable line wrap
 
     self.show_ids = false
     self.show_lines = false
 
-    self.m_stream = stream
-    self.m_cursor_pos = 1
-end
+    self.m_callbacks = {
+        write = callbacks.write,
+        write_line = callbacks.write_line or function(...)
+            self.m_callbacks.write(..., "\n")
+        end,
+        flush = callbacks.flush or function() end,
 
-function _terminal:close()
-    self.m_stream:write("\27[?7h")
+        erase_line = callbacks.erase_line,
+        erase_till_end = callbacks.erase_till_end,
+
+        go_to_line = callbacks.go_to_line
+    }
+
+    self.m_cursor_pos = 1
 end
 
 ---@param ... any
@@ -82,49 +105,27 @@ function _terminal:clear()
     self:update()
 end
 
----@private
----@param line integer
----@return string
-function _terminal:jump_to_line(line)
-    local jump_lines = line - self.m_cursor_pos
-    if jump_lines == 0 then
-        return ""
-    end
-
-    self.m_cursor_pos = line
-    if jump_lines > 0 then
-        return cursor.go_down(jump_lines)
-    else
-        return cursor.go_up(math_abs(jump_lines))
-    end
-end
-
 ---@param buffer table<integer, string | string[]>
 ---@param line_start integer
----@param builder Freemaker.utils.string.builder
-function _terminal:write_buffer(buffer, line_start, builder)
-    builder = builder
-
+function _terminal:write_buffer(buffer, line_start)
     for line, content in pairs(buffer) do
         line = line_start + line
 
         if type(content) == "table" then
-            self:write_buffer(content, line - 1, builder)
+            self:write_buffer(content, line - 1)
             goto continue
         end
 
-        builder:append(
-            self:jump_to_line(line),
-            erase.line()
-        )
+        self.m_callbacks.go_to_line(line)
+        self.m_callbacks.erase_line()
 
         if self.show_lines then
             local line_str = tostring(self.m_cursor_pos)
             local space = 3 - line_str:len()
-            builder:append(line_str, string_rep(" ", space), "|")
+            self.m_callbacks.write(line_str, string_rep(" ", space), "|")
         end
 
-        builder:append_line(content)
+        self.m_callbacks.write_line(content)
         self.m_cursor_pos = self.m_cursor_pos + 1
 
         ::continue::
@@ -150,33 +151,19 @@ function _terminal:update()
         terminal_buffer_pos = terminal_buffer_pos + length
     end
 
-    -- local builder = utils.string.builder.new()
-    local builder = {
-        append = function(_, ...)
-            self.m_stream:write(...)
-        end,
-        append_line = function(_, ...)
-            self.m_stream:write(..., "\n")
-        end,
-        build = function(_)
-            return ""
-        end
-    }
-
-    self:write_buffer(terminal_buffer, 0, builder)
+    self:write_buffer(terminal_buffer, 0)
 
     if #self.m_childs > 0 then
         local last_segment = self.m_childs[#self.m_childs]
         local line = last_segment:get_line()
         local length = last_segment:get_length()
-        builder:append(self:jump_to_line(line + length))
+        self.m_callbacks.go_to_line(line + length)
     else
-        builder:append(self:jump_to_line(1))
+        self.m_callbacks.go_to_line(1)
     end
 
-    builder:append(erase.till_end())
-    self.m_stream:write(builder:build())
-    self.m_stream:flush()
+    self.m_callbacks.erase_till_end()
+    self.m_callbacks.flush()
 end
 
 return class("lua-term.terminal", _terminal, {
