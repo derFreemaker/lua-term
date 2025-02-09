@@ -87,7 +87,6 @@ function _group:render_impl(context)
         ---@type lua-term.render_context
         local child_context = {
             show_id = context.show_id,
-            height = context.height,
             width = context.width,
             position_changed = entry:get_line() ~= group_buffer_pos or context.position_changed
         }

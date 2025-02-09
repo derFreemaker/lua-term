@@ -9,7 +9,7 @@ package.path = "./?.lua;" .. package.path
 ---@type lua-term
 local term = require("src.init")
 
-local terminal = term.terminal(io.stdout)
+local terminal = term.asci_terminal(io.stdout)
 terminal.show_ids = true
 terminal.show_lines = true
 

@@ -1,14 +1,10 @@
 local utils = require("misc.utils")
 
 local pairs = pairs
-local math_abs = math.abs
 local string_rep = string.rep
-local io_type = io.type
 local table_insert = table.insert
 local table_remove = table.remove
 
-local cursor = require("src.misc.cursor")
-local erase = require("src.misc.erase")
 local _segment_parent = require("src.segment.parent")
 local _entry = require("src.segment.entry")
 local _text = require("src.components.text")
@@ -47,11 +43,10 @@ local _text = require("src.components.text")
 ---@field show_lines boolean
 ---
 ---@field private m_callbacks lua-term.terminal.callbacks
----
----@field private m_cursor_pos integer
 ---@overload fun(callbacks: lua-term.terminal.callbacks.create) : lua-term.terminal
 local _terminal = {}
 
+---@alias lua-term.terminal.__init fun(callbacks: lua-term.terminal.callbacks.create)
 ---@alias lua-term.terminal.__con fun(callbacks: lua-term.terminal.callbacks.create) : lua-term.terminal
 
 ---@deprecated
@@ -76,8 +71,6 @@ function _terminal:__init(super, callbacks)
 
         go_to_line = callbacks.go_to_line
     }
-
-    self.m_cursor_pos = 1
 end
 
 ---@param ... any
@@ -120,13 +113,12 @@ function _terminal:write_buffer(buffer, line_start)
         self.m_callbacks.erase_line()
 
         if self.show_lines then
-            local line_str = tostring(self.m_cursor_pos)
+            local line_str = tostring(line)
             local space = 3 - line_str:len()
             self.m_callbacks.write(line_str, string_rep(" ", space), "|")
         end
 
         self.m_callbacks.write_line(content)
-        self.m_cursor_pos = self.m_cursor_pos + 1
 
         ::continue::
     end

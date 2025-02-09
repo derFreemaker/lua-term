@@ -143,6 +143,10 @@ __bundler__.__files__["src.utils.string.builder"] = function()
 	    return table_concat(self.m_cache)
 	end
 
+	function _string_builder:clear()
+	    self.m_cache = {}
+	end
+
 	return _string_builder
 
 end
@@ -660,14 +664,15 @@ __bundler__.__files__["src.utils.stopwatch"] = function()
 	        return 0
 	    end
 
-	    local lap_time = os.clock() * 1000
+	    local lap_time = os.clock()
 	    local previous_lap = self.laps[self.laps_count] or self.start_time
 
 	    self.laps_count = self.laps_count + 1
-	    self.laps[self.laps_count] = lap_time
+	    self.laps[self.laps_count] = previous_lap
+
 	    local elapesd_time = lap_time - previous_lap
 
-	    return _number.round(elapesd_time)
+	    return _number.round(elapesd_time * 1000)
 	end
 
 	---@return integer elapesd_milliseconds
@@ -683,7 +688,7 @@ __bundler__.__files__["src.utils.stopwatch"] = function()
 	        sum = sum + lap_time
 	    end
 
-		return sum / self.laps_count
+	    return sum / #self.laps
 	end
 
 	return _stopwatch
