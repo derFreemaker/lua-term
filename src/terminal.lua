@@ -95,7 +95,9 @@ end
 
 function _terminal:clear()
     self.m_childs = {}
-    self:update()
+    self.m_callbacks.go_to_line(1)
+    self.m_callbacks.erase_till_end()
+    self.m_callbacks.flush()
 end
 
 ---@param self lua-term.terminal
@@ -126,25 +128,25 @@ local function write_buffer(self, buffer, line_start)
 end
 
 function _terminal:update()
-    local terminal_buffer = {}
-    local terminal_buffer_pos = 1
+    local buffer = {}
+    local buffer_pos = 1
 
     for _, segment in ipairs(self.m_childs) do
         ---@type lua-term.render_context
         local context = {
             show_id = self.show_ids,
             width = 80,
-            position_changed = segment:get_line() ~= terminal_buffer_pos
+            position_changed = segment:get_line() ~= buffer_pos
         }
 
-        local buffer, length = segment:render(context)
-        terminal_buffer[terminal_buffer_pos] = buffer
+        local seg_buffer, seg_length = segment:render(context)
+        buffer[buffer_pos] = seg_buffer
 
-        segment:set_line(terminal_buffer_pos)
-        terminal_buffer_pos = terminal_buffer_pos + length
+        segment:set_line(buffer_pos)
+        buffer_pos = buffer_pos + seg_length
     end
 
-    write_buffer(self, terminal_buffer, 0)
+    write_buffer(self, buffer, 0)
 
     if #self.m_childs > 0 then
         local last_segment = self.m_childs[#self.m_childs]

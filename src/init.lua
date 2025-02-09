@@ -46,6 +46,7 @@ local term = {
             flush = function()
                 stream:write(builder:build())
                 stream:flush()
+
                 builder:clear()
             end,
 

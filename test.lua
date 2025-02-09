@@ -53,22 +53,18 @@ terminal.show_lines = true
 local group = term.components.group("test-group", terminal)
 term.components.text("test", group, "lol")
 term.components.text("test2", group, "lol2")
-terminal:update()
 
 local group = term.components.group("test-group", terminal)
 term.components.text("test", group, "lol")
 term.components.text("test2", group, "lol2")
-terminal:update()
 
 local group = term.components.group("test-group", terminal)
 term.components.text("test", group, "lol")
 term.components.text("test2", group, "lol2")
-terminal:update()
 
 local group = term.components.group("test-group", terminal)
 term.components.text("test", group, "lol")
 term.components.text("test2", group, "lol2")
-terminal:update()
 
 local group = term.components.group("test-group", terminal)
 term.components.text("test", group, "lol")
