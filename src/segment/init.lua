@@ -109,7 +109,7 @@ end
 
 ---@return table<integer, string> update_buffer
 ---@return integer lines
-function _segment:render(context)
+function _segment:render_impl(context)
     if self.m_requested_update then
         self.m_requested_update = false
 
@@ -134,7 +134,7 @@ function _segment:render(context)
         self.m_content_length = buffer_length
     end
 
-    return self.m_content, self.m_content_length
+    return utils.table.copy(self.m_content), self.m_content_length
 end
 
 return class("lua-term.segment", _segment, {

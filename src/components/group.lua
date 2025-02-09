@@ -76,7 +76,7 @@ end
 
 ---@return table<integer, string> update_buffer
 ---@return integer length
-function _group:render(context)
+function _group:render_impl(context)
     self.m_requested_update = false
     if #self.m_childs == 0 then
         return {}, 0
@@ -89,7 +89,7 @@ function _group:render(context)
             show_id = context.show_id,
             height = context.height,
             width = context.width,
-            position_changed = entry:get_line() ~= group_buffer_pos
+            position_changed = entry:get_line() ~= group_buffer_pos or context.position_changed
         }
         local buffer, length = entry:render(child_context)
         entry:set_line(group_buffer_pos)

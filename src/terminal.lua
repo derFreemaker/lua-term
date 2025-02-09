@@ -1,5 +1,4 @@
-local cursor = require("src.misc.cursor")
-local erase = require("src.misc.erase")
+local utils = require("misc.utils")
 
 local pairs = pairs
 local math_abs = math.abs
@@ -8,9 +7,10 @@ local io_type = io.type
 local table_insert = table.insert
 local table_remove = table.remove
 
+local cursor = require("src.misc.cursor")
+local erase = require("src.misc.erase")
 local _segment_parent = require("src.segment.parent")
 local _entry = require("src.segment.entry")
-
 local _text = require("src.components.text")
 
 ---@class lua-term.render_context
@@ -29,7 +29,6 @@ local _text = require("src.components.text")
 ---
 ---@field private m_stream file*
 ---
----@field private m_org_print function
 ---@field private m_cursor_pos integer
 ---@overload fun(stream: file*) : lua-term.terminal
 local _terminal = {}
@@ -86,40 +85,47 @@ end
 
 ---@private
 ---@param line integer
+---@return string
 function _terminal:jump_to_line(line)
     local jump_lines = line - self.m_cursor_pos
     if jump_lines == 0 then
-        return
+        return ""
     end
 
-    if jump_lines > 0 then
-        self.m_stream:write(cursor.go_down(jump_lines))
-    else
-        self.m_stream:write(cursor.go_up(math_abs(jump_lines)))
-    end
     self.m_cursor_pos = line
+    if jump_lines > 0 then
+        return cursor.go_down(jump_lines)
+    else
+        return cursor.go_up(math_abs(jump_lines))
+    end
 end
 
 ---@param buffer table<integer, string | string[]>
 ---@param line_start integer
-function _terminal:write_buffer(buffer, line_start)
+---@param builder Freemaker.utils.string.builder
+function _terminal:write_buffer(buffer, line_start, builder)
+    builder = builder
+
     for line, content in pairs(buffer) do
         line = line_start + line
 
         if type(content) == "table" then
-            self:write_buffer(content, line - 1)
+            self:write_buffer(content, line - 1, builder)
             goto continue
         end
 
-        self:jump_to_line(line)
+        builder:append(
+            self:jump_to_line(line),
+            erase.line()
+        )
 
-        self.m_stream:write(erase.line())
         if self.show_lines then
             local line_str = tostring(self.m_cursor_pos)
             local space = 3 - line_str:len()
-            self.m_stream:write(line_str, string_rep(" ", space), "|")
+            builder:append(line_str, string_rep(" ", space), "|")
         end
-        self.m_stream:write(content, "\n")
+
+        builder:append_line(content)
         self.m_cursor_pos = self.m_cursor_pos + 1
 
         ::continue::
@@ -140,24 +146,38 @@ function _terminal:update()
         }
 
         local buffer, length = segment:render(context)
-        terminal_buffer[terminal_buffer_pos] = buffer
+        terminal_buffer[terminal_buffer_pos] = buffers
 
         segment:set_line(terminal_buffer_pos)
         terminal_buffer_pos = terminal_buffer_pos + length
     end
 
-    self:write_buffer(terminal_buffer, 0)
+    -- local builder = utils.string.builder.new()
+    local builder = {
+        append = function(...)
+            self.m_stream:write(...)
+        end,
+        append_line = function(...)
+            self.m_stream:write(..., "\n")
+        end,
+        build = function()
+            return ""
+        end
+    }
+
+    self:write_buffer(terminal_buffer, 0, builder)
 
     if #self.m_childs > 0 then
         local last_segment = self.m_childs[#self.m_childs]
         local line = last_segment:get_line()
         local length = last_segment:get_length()
-        self:jump_to_line(line + length + 1)
+        builder:append(self:jump_to_line(line + length + 1))
     else
-        self:jump_to_line(1)
+        builder:append(self:jump_to_line(1))
     end
 
-    self.m_stream:write(erase.till_end())
+    builder:append(erase.till_end())
+    self.m_stream:write(builder:build())
     self.m_stream:flush()
 end
 

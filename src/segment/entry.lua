@@ -1,6 +1,5 @@
 local string_rep = string.rep
 local table_insert = table.insert
-local table_remove = table.remove
 
 ---@class lua-term.segment.entry : object
 ---@field id string
@@ -59,14 +58,9 @@ end
 ---@param buffer table<integer, string>
 ---@param width integer
 function _entry:add_id_to_buffer(buffer, length, width)
-    local indexs = {}
-    for index in pairs(buffer) do
-        table_insert(indexs, index)
-    end
-    for i = #indexs, 1, -1 do
-        local index = indexs[i]
-        buffer[index + 1] = buffer[index]
-        buffer[index] = nil
+    for i = length, 1, -1 do
+        buffer[i + 1] = buffer[i]
+        buffer[i] = nil
     end
 
     local id_str = "---- '" .. self.id .. "' "
@@ -79,15 +73,11 @@ function _entry:render(context)
     local buffer, length = self.m_segment:render_impl(context)
 
     if self.m_showing_id then
-        length = length + 2
-
-        for i = 1, length, 1 do
+        for i = length, 1, -1 do
             buffer[i + 1] = buffer[i]
             buffer[i] = nil
         end
-
-        buffer[1] = nil
-        buffer[length] = nil
+        length = length + 2
     end
 
     if context.position_changed and self.m_showing_id then
