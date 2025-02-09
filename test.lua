@@ -50,12 +50,30 @@ terminal.show_lines = true
 --     sleep(0.005)
 -- end
 
-for i = 1, 2, 1 do
-    local group = term.components.group("test-group", terminal)
-    term.components.text("test", group, "lol")
-    term.components.text("test2", group, "lol2")
-    terminal:update()
-end
+local group = term.components.group("test-group", terminal)
+term.components.text("test", group, "lol")
+term.components.text("test2", group, "lol2")
+terminal:update()
+
+local group = term.components.group("test-group", terminal)
+term.components.text("test", group, "lol")
+term.components.text("test2", group, "lol2")
+terminal:update()
+
+local group = term.components.group("test-group", terminal)
+term.components.text("test", group, "lol")
+term.components.text("test2", group, "lol2")
+terminal:update()
+
+local group = term.components.group("test-group", terminal)
+term.components.text("test", group, "lol")
+term.components.text("test2", group, "lol2")
+terminal:update()
+
+local group = term.components.group("test-group", terminal)
+term.components.text("test", group, "lol")
+term.components.text("test2", group, "lol2")
+terminal:update()
 
 sleep(3)
 

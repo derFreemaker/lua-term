@@ -16,7 +16,6 @@ local _text = require("src.components.text")
 ---@class lua-term.render_context
 ---@field show_id boolean
 ---
----@field height integer
 ---@field width integer
 ---
 ---@field position_changed boolean
@@ -51,7 +50,7 @@ function _terminal:__init(super, stream)
     self.show_lines = false
 
     self.m_stream = stream
-    self.m_cursor_pos = 0
+    self.m_cursor_pos = 1
 end
 
 function _terminal:close()
@@ -140,7 +139,6 @@ function _terminal:update()
         ---@type lua-term.render_context
         local context = {
             show_id = self.show_ids,
-            height = 30,
             width = 80,
             position_changed = segment:get_line() ~= terminal_buffer_pos
         }
@@ -154,13 +152,13 @@ function _terminal:update()
 
     -- local builder = utils.string.builder.new()
     local builder = {
-        append = function(...)
+        append = function(_, ...)
             self.m_stream:write(...)
         end,
-        append_line = function(...)
+        append_line = function(_, ...)
             self.m_stream:write(..., "\n")
         end,
-        build = function()
+        build = function(_)
             return ""
         end
     }
@@ -171,7 +169,7 @@ function _terminal:update()
         local last_segment = self.m_childs[#self.m_childs]
         local line = last_segment:get_line()
         local length = last_segment:get_length()
-        builder:append(self:jump_to_line(line + length + 1))
+        builder:append(self:jump_to_line(line + length))
     else
         builder:append(self:jump_to_line(1))
     end
