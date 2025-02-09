@@ -42,7 +42,7 @@ local _text = require("src.components.text")
 ---@field show_ids boolean
 ---@field show_lines boolean
 ---
----@field private m_callbacks lua-term.terminal.callbacks
+---@field package m_callbacks lua-term.terminal.callbacks
 ---@overload fun(callbacks: lua-term.terminal.callbacks.create) : lua-term.terminal
 local _terminal = {}
 
@@ -98,14 +98,15 @@ function _terminal:clear()
     self:update()
 end
 
+---@param self lua-term.terminal
 ---@param buffer table<integer, string | string[]>
 ---@param line_start integer
-function _terminal:write_buffer(buffer, line_start)
+local function write_buffer(self, buffer, line_start)
     for line, content in pairs(buffer) do
         line = line_start + line
 
         if type(content) == "table" then
-            self:write_buffer(content, line - 1)
+            write_buffer(self, content, line - 1)
             goto continue
         end
 
@@ -143,7 +144,7 @@ function _terminal:update()
         terminal_buffer_pos = terminal_buffer_pos + length
     end
 
-    self:write_buffer(terminal_buffer, 0)
+    write_buffer(self, terminal_buffer, 0)
 
     if #self.m_childs > 0 then
         local last_segment = self.m_childs[#self.m_childs]
