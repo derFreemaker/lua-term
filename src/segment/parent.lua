@@ -28,6 +28,7 @@ function _segment_single_line_parent:remove_child(child)
 end
 
 ---@class lua-term.segment.parent : lua-term.segment.single_line_parent, object
+---@field protected m_childs lua-term.segment.entry[]
 local _segment_parent = {}
 
 ---@alias lua-term.segment.parent.__init fun()

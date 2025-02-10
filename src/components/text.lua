@@ -29,7 +29,7 @@ function _text:__init(id, parent, text)
     end)
 end
 
----@param parent lua-term.segment.single_line_parent
+---@param parent lua-term.segment.parent
 ---@param ... any
 ---@return lua-term.components.text
 function _text.static__print(parent, ...)
@@ -39,6 +39,25 @@ function _text.static__print(parent, ...)
     end
     local text = table_concat(items, "\t")
 
+    ---@diagnostic disable-next-line: param-type-mismatch
+    return _text("<print>", parent, text)
+end
+
+---@param parent lua-term.segment.single_line_parent
+---@param ... any
+---@return lua-term.components.text
+function _text.static__print_line(parent, ...)
+    local items = {}
+    for _, value in ipairs({ ... }) do
+        table_insert(items, tostring(value))
+    end
+    local text = table_concat(items, "\t")
+
+    if text:find("\n", nil, true) then
+        error("can not have new line '\\n' in 'static__print_line'. use 'static__print'")
+    end
+
+    ---@diagnostic disable-next-line: param-type-mismatch
     return _text("<print>", parent, text)
 end
 

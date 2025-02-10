@@ -58,12 +58,15 @@ function _line:render_impl(context)
 
     if context.show_id then
         local line_buffer = {}
+        local line_buffer_pos = 1
 
         for _, entry in ipairs(self.m_childs) do
-            
+            local buffer, length = entry:render(context)
+            line_buffer_pos[line_buffer_pos] = buffer
+            line_buffer_pos = line_buffer_pos + length
         end
 
-        return {}, 0
+        return line_buffer, line_buffer_pos - 1
     end
 
     local line_buffer = {}
