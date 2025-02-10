@@ -29,7 +29,7 @@ function _text:__init(id, parent, text)
     end)
 end
 
----@param parent lua-term.segment.parent
+---@param parent lua-term.segment.single_line_parent
 ---@param ... any
 ---@return lua-term.components.text
 function _text.static__print(parent, ...)

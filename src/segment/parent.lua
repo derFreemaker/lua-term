@@ -5,8 +5,29 @@ local class_system = require("misc.class_system")
 local _entry = require("src.segment.entry")
 local _text = require("src.components.text")
 
----@class lua-term.segment.parent : object
+---@class lua-term.segment.single_line_parent : object
 ---@field protected m_childs lua-term.segment.entry[]
+local _segment_single_line_parent = {}
+
+---@param only_schedule boolean | nil
+function _segment_single_line_parent:update(only_schedule)
+end
+
+---@param ... any
+---@return lua-term.components.text
+function _segment_single_line_parent:print(...)
+---@diagnostic disable-next-line: missing-return
+end
+
+---@param segment lua-term.segment.single_line_interface
+function _segment_single_line_parent:add_child(segment)
+end
+
+---@param child lua-term.segment.single_line_interface
+function _segment_single_line_parent:remove_child(child)
+end
+
+---@class lua-term.segment.parent : lua-term.segment.single_line_parent, object
 local _segment_parent = {}
 
 ---@alias lua-term.segment.parent.__init fun()

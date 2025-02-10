@@ -78,10 +78,10 @@ function _entry:render(context)
             buffer[i] = nil
         end
         length = length + 2
-    end
 
-    if context.position_changed and self.m_showing_id then
-        self:add_id_to_buffer(buffer, length, context.width)
+        if context.position_changed then
+            self:add_id_to_buffer(buffer, length, context.width)
+        end
     end
 
     if context.show_id ~= self.m_showing_id then

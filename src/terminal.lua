@@ -39,9 +39,9 @@ local _text = require("src.components.text")
 ---@field go_to_line fun(line: integer)
 
 ---@class lua-term.terminal : object, lua-term.segment.parent
----@field show_ids boolean
----@field show_lines boolean
 ---
+---@field package m_show_ids boolean
+---@field package m_show_line_numbers boolean
 ---@field package m_callbacks lua-term.terminal.callbacks
 ---@overload fun(callbacks: lua-term.terminal.callbacks.create) : lua-term.terminal
 local _terminal = {}
@@ -71,6 +71,16 @@ function _terminal:__init(super, callbacks)
 
         go_to_line = callbacks.go_to_line
     }
+end
+
+---@param value boolean | nil
+function _terminal:show_ids(value)
+    self.m_show_ids = value or true
+end
+
+---@param value boolean | nil
+function _terminal:show_line_numbers(value)
+    self.m_show_line_numbers = value or true
 end
 
 ---@param ... any
@@ -115,7 +125,7 @@ local function write_buffer(self, buffer, line_start)
         self.m_callbacks.go_to_line(line)
         self.m_callbacks.erase_line()
 
-        if self.show_lines then
+        if self.m_show_line_numbers then
             local line_str = tostring(line)
             local space = 3 - line_str:len()
             self.m_callbacks.write(line_str, string_rep(" ", space), "|")
@@ -134,7 +144,7 @@ function _terminal:update()
     for _, segment in ipairs(self.m_childs) do
         ---@type lua-term.render_context
         local context = {
-            show_id = self.show_ids,
+            show_id = self.m_show_ids,
             width = 80,
             position_changed = segment:get_line() ~= buffer_pos
         }

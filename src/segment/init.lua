@@ -110,29 +110,31 @@ end
 ---@return table<integer, string> update_buffer
 ---@return integer lines
 function _segment:render_impl(context)
-    if self.m_requested_update then
-        self.m_requested_update = false
-
-        local pre_render_thread = coroutine.create(create_render_function(self.m_func))
-        ---@type boolean, table<integer, string> | string, integer
-        local success, buffer_or_msg, buffer_length = coroutine.resume(pre_render_thread)
-
-        if not success then
-            buffer_or_msg = utils.string.split(
-                ("%s\nerror rendering segment:\n%s\n%s")
-                :format(
-                    string_rep("-", 80),
-                    debug_traceback(pre_render_thread, buffer_or_msg),
-                    string_rep("-", 80)
-                ),
-                "\n", true)
-            buffer_length = #buffer_or_msg
-        end
-        ---@cast buffer_or_msg -string
-
-        self.m_content = buffer_or_msg
-        self.m_content_length = buffer_length
+    if not self.m_requested_update and not context.position_changed then
+        return {}, self.m_content_length
     end
+
+    self.m_requested_update = false
+
+    local pre_render_thread = coroutine.create(create_render_function(self.m_func))
+    ---@type boolean, table<integer, string> | string, integer
+    local success, buffer_or_msg, buffer_length = coroutine.resume(pre_render_thread)
+
+    if not success then
+        buffer_or_msg = utils.string.split(
+            ("%s\nerror rendering segment:\n%s\n%s")
+            :format(
+                string_rep("-", 80),
+                debug_traceback(pre_render_thread, buffer_or_msg),
+                string_rep("-", 80)
+            ),
+            "\n", true)
+        buffer_length = #buffer_or_msg
+    end
+    ---@cast buffer_or_msg -string
+
+    self.m_content = buffer_or_msg
+    self.m_content_length = buffer_length
 
     return utils.table.copy(self.m_content), self.m_content_length
 end
