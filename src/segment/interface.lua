@@ -18,6 +18,7 @@ function _segment_interface:get_length()
     return self.m_content_length
 end
 
+---@param update boolean | nil
 function _segment_interface:remove(update)
 end
 

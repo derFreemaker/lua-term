@@ -50,26 +50,12 @@ terminal:show_line_numbers()
 --     sleep(0.005)
 -- end
 
-local group = term.components.group("test-group", terminal)
-term.components.text("test", group, "lol")
-term.components.text("test2", group, "lol2")
-
-local group = term.components.group("test-group", terminal)
-term.components.text("test", group, "lol")
-term.components.text("test2", group, "lol2")
-
-local group = term.components.group("test-group", terminal)
-term.components.text("test", group, "lol")
-term.components.text("test2", group, "lol2")
-
-local group = term.components.group("test-group", terminal)
-term.components.text("test", group, "lol")
-term.components.text("test2", group, "lol2")
-
-local group = term.components.group("test-group", terminal)
-term.components.text("test", group, "lol")
-term.components.text("test2", group, "lol2")
+local throbber = term.components.throbber("test", terminal, {
+    rotate_on_every_update = true
+})
 terminal:update()
+
+throbber:rotate()
 
 sleep(3)
 

@@ -37,7 +37,7 @@ function _group:remove(update)
     self.m_parent:remove_child(self)
 
     if update then
-        self.m_parent:update()
+        self.m_parent:update(false)
     end
 end
 

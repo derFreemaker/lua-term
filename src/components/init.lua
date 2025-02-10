@@ -3,7 +3,7 @@
 ---
 ---@field text lua-term.components.text | lua-term.components.text.__con
 ----@field loading lua-term.components.loading
-----@field throbber lua-term.components.throbber
+---@field throbber lua-term.components.throbber | lua-term.components.throbber.__con
 ---
 ----@field line lua-term.components.line
 ---@field group lua-term.components.group | lua-term.components.group.__con
@@ -16,7 +16,7 @@ local components = {
 
     text = require("src.components.text"),
     -- loading = require("src.components.loading"),
-    -- throbber = require("src.components.throbber"),
+    throbber = require("src.components.throbber"),
 
     -- line = require("src.components.line"),
     group = require("src.components.group"),

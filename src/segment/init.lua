@@ -14,9 +14,9 @@ local _segment_interface = require("src.segment.interface")
 ---@field line integer
 ---@field length integer
 
----@alias lua-term.segment.func (fun() : table<integer, string>, integer)
+---@alias lua-term.segment.func fun(context: lua-term.render_context) : table<integer, string>, integer
 
----@class lua-term.segment : object, lua-term.segment.interface
+---@class lua-term.segment : object, lua-term.segment.single_line_interface
 ---@field id string
 ---
 ---@field m_requested_update boolean
@@ -25,17 +25,17 @@ local _segment_interface = require("src.segment.interface")
 ---@field private m_content_length integer
 ---@field private m_func lua-term.segment.func
 ---
----@field private m_parent lua-term.segment.parent
----@overload fun(id: string, parent: lua-term.segment.parent, func: lua-term.segment.func) : lua-term.segment
+---@field private m_parent lua-term.segment.single_line_parent
+---@overload fun(id: string, parent: lua-term.segment.single_line_parent, func: lua-term.segment.func) : lua-term.segment
 local _segment = {}
 
----@alias lua-term.segment.__init fun(id: string, parent: lua-term.segment.parent, func: lua-term.segment.func)
----@alias lua-term.segment.__con fun(id: string, parent: lua-term.segment.parent, func: lua-term.segment.func) : lua-term.segment
+---@alias lua-term.segment.__init fun(id: string, parent: lua-term.segment.single_line_parent, func: lua-term.segment.func)
+---@alias lua-term.segment.__con fun(id: string, parent: lua-term.segment.single_line_parent, func: lua-term.segment.func) : lua-term.segment
 
 ---@deprecated
 ---@private
 ---@param id string
----@param parent lua-term.segment.parent
+---@param parent lua-term.segment.single_line_parent
 ---@param func lua-term.segment.func
 function _segment:__init(id, parent, func)
     self.id = id
@@ -95,8 +95,8 @@ end
 ---@param render_func lua-term.segment.func
 ---@return lua-term.segment.func
 local function create_render_function(render_func)
-    return function()
-        local buffer, lines = render_func()
+    return function(context)
+        local buffer, lines = render_func(context)
 
         assert(type(buffer) == "table",
             "no buffer (string[]) returned from render function (#1 return value)")
@@ -118,7 +118,7 @@ function _segment:render_impl(context)
 
     local pre_render_thread = coroutine.create(create_render_function(self.m_func))
     ---@type boolean, table<integer, string> | string, integer
-    local success, buffer_or_msg, buffer_length = coroutine.resume(pre_render_thread)
+    local success, buffer_or_msg, buffer_length = coroutine.resume(pre_render_thread, context)
 
     if not success then
         buffer_or_msg = utils.string.split(
