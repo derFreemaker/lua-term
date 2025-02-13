@@ -51,8 +51,7 @@ function _loop_with_end.new(id, parent, config)
         end
 
         if config.show_iterations_per_second and loading_bar.state ~= 0 then
-            local time = stopwatch:reset()
-            local avg_update_time_seconds = time / 1000
+            local avg_update_time_seconds = stopwatch:reset() / 1000
             local avg_updates_per_second = 1 / avg_update_time_seconds
             local avg_iterations_per_second = avg_updates_per_second * config.update_on_every_iterations
             builder:append(" |")
