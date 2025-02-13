@@ -1,8 +1,6 @@
 local utils = require("misc.utils")
 
 local string_rep = string.rep
-local table_insert = table.insert
-local table_remove = table.remove
 local debug_traceback = debug.traceback
 
 local _segment_interface = require("src.segment.interface")

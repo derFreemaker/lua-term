@@ -594,29 +594,34 @@ end
 
 __bundler__.__files__["src.utils.stopwatch"] = function()
 	local _number = __bundler__.__loadFile__("src.utils.number")
+	local _table = __bundler__.__loadFile__("src.utils.table")
+
+	---@class Freemaker.utils.stopwatch.lap
+	---@field time_sec number
+	---@field abs_time_sec number
 
 	---@class Freemaker.utils.stopwatch
-	---@field private running boolean
+	---@field private m_running boolean
 	---
-	---@field start_time number
-	---@field end_time number
-	---@field private elapesd_milliseconds integer
+	---@field private m_start_time_sec number
+	---@field private m_end_time_sec number
+	---@field private m_elapesd_milliseconds integer
 	---
-	---@field private laps integer[]
-	---@field private laps_count integer
+	---@field private m_laps Freemaker.utils.stopwatch.lap[]
+	---@field private m_laps_count integer
 	local _stopwatch = {}
 
 	---@return Freemaker.utils.stopwatch
 	function _stopwatch.new()
 	    return setmetatable({
-	        running = false,
+	        m_running = false,
 
-	        start_time = 0,
-	        end_time = 0,
-	        elapesd_milliseconds = 0,
+	        m_start_time_sec = 0,
+	        m_end_time_sec = 0,
+	        m_elapesd_milliseconds = 0,
 
-	        laps = {},
-	        laps_count = 0,
+	        m_laps = {},
+	        m_laps_count = 0,
 	    }, { __index = _stopwatch })
 	end
 
@@ -628,67 +633,85 @@ __bundler__.__files__["src.utils.stopwatch"] = function()
 	end
 
 	function _stopwatch:start()
-	    if self.running then
+	    if self.m_running then
 	        return
 	    end
 
-	    self.start_time = os.clock()
-	    self.running = true
+	    self.m_start_time_sec = os.clock()
+	    self.m_running = true
 	end
 
 	function _stopwatch:stop()
-	    if not self.running then
+	    if not self.m_running then
 	        return
 	    end
 
-	    self.end_time = os.clock()
-	    local elapesd_time = self.end_time - self.start_time
-	    self.running = false
+	    self.m_end_time_sec = os.clock()
+	    local elapesd_time = self.m_end_time_sec - self.m_start_time_sec
+	    self.m_running = false
 
-	    self.elapesd_milliseconds = _number.round(elapesd_time * 1000)
+	    self.m_elapesd_milliseconds = _number.round(elapesd_time * 1000)
+	end
+
+	---@return integer elapesd_milliseconds
+	function _stopwatch:reset()
+	    self:stop()
+	    self:start()
+	    return self.m_elapesd_milliseconds
 	end
 
 	---@return integer
 	function _stopwatch:get_elapesd_seconds()
-	    return _number.round(self.elapesd_milliseconds / 1000)
+	    return _number.round(self.m_elapesd_milliseconds / 1000)
 	end
 
 	---@return integer
 	function _stopwatch:get_elapesd_milliseconds()
-	    return self.elapesd_milliseconds
+	    return self.m_elapesd_milliseconds
 	end
 
 	---@return integer elapesd_milliseconds
 	function _stopwatch:lap()
-	    if not self.running then
+	    if not self.m_running then
 	        return 0
 	    end
 
 	    local lap_time = os.clock()
-	    local previous_lap = self.laps[self.laps_count] or self.start_time
 
-	    self.laps_count = self.laps_count + 1
-	    self.laps[self.laps_count] = previous_lap
-
+	    local previous_lap
+	    if self.m_laps[1] then
+	        previous_lap = self.m_laps[self.m_laps_count].abs_time_sec
+	    else
+	        previous_lap = self.m_start_time_sec
+	    end
 	    local elapesd_time = lap_time - previous_lap
+
+	    self.m_laps_count = self.m_laps_count + 1
+	    self.m_laps[self.m_laps_count] = { time_sec = elapesd_time, abs_time_sec = lap_time }
 
 	    return _number.round(elapesd_time * 1000)
 	end
 
 	---@return integer elapesd_milliseconds
 	function _stopwatch:avg_lap()
-	    if not self.running then
+	    if not self.m_running then
 	        return 0
 	    end
 
 	    self:lap()
 
 	    local sum = 0
-	    for _, lap_time in ipairs(self.laps) do
-	        sum = sum + lap_time
+	    for _, lap_time in ipairs(self.m_laps) do
+	        sum = sum + lap_time.time_sec
 	    end
 
-	    return sum / #self.laps
+	    return sum / self.m_laps_count
+	end
+
+	---@return Freemaker.utils.stopwatch.lap[]
+	---@return integer count
+	function _stopwatch:get_laps()
+	    return _table.copy(self.m_laps), self.m_laps_count
 	end
 
 	return _stopwatch

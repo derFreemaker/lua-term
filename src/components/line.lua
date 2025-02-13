@@ -16,11 +16,17 @@ local _line = {}
 
 ---@deprecated
 ---@private
+---@param super lua-term.segment.parent.__init
 ---@param id string
 ---@param parent lua-term.segment.parent
-function _line:__init(id, parent)
+function _line:__init(super, id, parent)
+    super()
+
     self.m_id = id
     self.m_requested_update = true
+
+    self.m_parent = parent
+    parent:add_child(self)
 end
 
 -- lua-term.segment.interface
@@ -62,7 +68,7 @@ function _line:render_impl(context)
 
         for _, entry in ipairs(self.m_childs) do
             local buffer, length = entry:render(context)
-            line_buffer_pos[line_buffer_pos] = buffer
+            line_buffer[line_buffer_pos] = buffer
             line_buffer_pos = line_buffer_pos + length
         end
 
@@ -83,6 +89,7 @@ end
 function _line:update(only_schedule)
     if only_schedule then
         self.m_requested_update = true
+        return
     end
 
     self.m_parent:update()

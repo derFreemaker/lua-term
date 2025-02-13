@@ -70,7 +70,7 @@ end
 
 ---@param context lua-term.render_context
 function _entry:render(context)
-    local buffer, length = self.m_segment:render_impl(context)
+    local buffer, length = self.m_segment:render(context)
 
     if self.m_showing_id then
         for i = length, 1, -1 do

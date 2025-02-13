@@ -367,91 +367,9 @@ __bundler__.__files__["tools.utils"] = function()
 	    __bundler__.__cleanup__()
 	    return table.unpack(items)
 	end
-	__bundler__.__files__["src.utils.number"] = function()
-		---@class Freemaker.utils.number
-		local _number = {}
-
-		---@type table<integer, integer>
-		local round_cache = {}
-
-		---@param value number
-		---@param decimal integer | nil
-		---@return integer
-		function _number.round(value, decimal)
-		    decimal = decimal or 0
-		    if decimal > 308 then
-		        error("cannot round more decimals than 308")
-		    end
-
-		    local mult = round_cache[decimal]
-		    if not mult then
-		        mult = 10 ^ decimal
-		        round_cache[decimal] = mult
-		    end
-
-		    return ((value * mult + 0.5) // 1) / mult
-		end
-
-		---@param value number
-		---@param min number
-		---@param max number
-		---@return number
-		function _number.clamp(value, min, max)
-		    if value < min then
-		        return min
-		    end
-
-		    if value > max then
-		        return max
-		    end
-
-		    return value
-		end
-
-		return _number
-
-	end
-
-	__bundler__.__files__["src.utils.string.builder"] = function()
-		local table_insert = table.insert
-		local table_concat = table.concat
-
-		---@class Freemaker.utils.string.builder
-		---@field private m_cache string[]
-		local _string_builder = {}
-
-		function _string_builder.new()
-		    local instance = setmetatable({
-		        m_cache = {}
-		    }, { __index = _string_builder })
-		    return instance
-		end
-
-		function _string_builder:append(...)
-		    for _, value in ipairs({...}) do
-		        table_insert(self.m_cache, tostring(value))
-		    end
-		end
-
-		function _string_builder:append_line(...)
-		    self:append(...)
-		    self:append("\n")
-		end
-
-		function _string_builder:build()
-		    return table_concat(self.m_cache)
-		end
-
-		return _string_builder
-
-	end
-
-	__bundler__.__files__["src.utils.string.init"] = function()
+	__bundler__.__files__["src.utils.string"] = function()
 		---@class Freemaker.utils.string
-		---@field builder Freemaker.utils.string.builder
-		local _string = {
-		    builder = __bundler__.__loadFile__("src.utils.string.builder")
-		}
+		local _string = {}
 
 		---@param str string
 		---@param pattern string
@@ -459,11 +377,9 @@ __bundler__.__files__["tools.utils"] = function()
 		---@return string | nil, integer
 		local function find_next(str, pattern, plain)
 		    local found = str:find(pattern, 0, plain or true)
-
 		    if found == nil then
 		        return nil, 0
 		    end
-
 		    return str:sub(0, found - 1), found - 1
 		end
 
@@ -508,28 +424,10 @@ __bundler__.__files__["tools.utils"] = function()
 		    if str == nil then
 		        return true
 		    end
-
 		    if str == "" then
 		        return true
 		    end
-
 		    return false
-		end
-
-		---@param str string
-		---@param length integer
-		---@param char string | nil
-		function _string.left_pad(str, length, char)
-		    local str_length = str:len()
-		    return string.rep(char or " ", length - str_length) .. str
-		end
-
-		---@param str string
-		---@param length integer
-		---@param char string | nil
-		function _string.right_pad(str, length, char)
-		    local str_length = str:len()
-		    return str .. string.rep(char or " ", length - str_length)
 		end
 
 		return _string
@@ -541,33 +439,33 @@ __bundler__.__files__["tools.utils"] = function()
 		local _table = {}
 
 		---@param t table
-		---@param copy table
-		---@param seen table<table, table>
-		---@return table
-		local function copy_table_to(t, copy, seen)
-		    if seen[t] then
-		        return seen[t]
-		    end
+			---@param copy table
+			---@param seen table<table, table>
+			---@return table
+			local function copy_table_to(t, copy, seen)
+			    if seen[t] then
+			        return seen[t]
+			    end
 
-		    seen[t] = copy
+			    seen[t] = copy
 
-		    for key, value in next, t do
-		        if type(value) == "table" then
-		            copy[key] = copy_table_to(value, copy[key] or {}, seen)
-		        else
-		            copy[key] = value
-		        end
-		    end
+			    for key, value in next, t do
+			        if type(value) == "table" then
+						copy[key] = copy_table_to(value, copy[key] or {}, seen)
+			        else
+			            copy[key] = value
+			        end
+			    end
 
-		    local t_meta = getmetatable(t)
-		    if t_meta then
-		        local copy_meta = getmetatable(copy) or {}
-		        copy_table_to(t_meta, copy_meta, seen)
-		        setmetatable(copy, copy_meta)
-		    end
+			    local t_meta = getmetatable(t)
+			    if t_meta then
+			        local copy_meta = getmetatable(copy) or {}
+			        copy_table_to(t_meta, copy_meta, seen)
+			        setmetatable(copy, copy_meta)
+			    end
 
-		    return copy
-		end
+				return copy
+			end
 
 		---@generic T
 		---@param t T
@@ -610,7 +508,6 @@ __bundler__.__files__["tools.utils"] = function()
 		            return true
 		        end
 		    end
-
 		    return false
 		end
 
@@ -621,19 +518,32 @@ __bundler__.__files__["tools.utils"] = function()
 		    if t[key] ~= nil then
 		        return true
 		    end
-
 		    return false
+		end
+
+		--- removes all spaces between
+		---@param t any[]
+		function _table.clean(t)
+		    for key, value in pairs(t) do
+		        for i = key - 1, 1, -1 do
+		            if key ~= 1 then
+		                if t[i] == nil and (t[i - 1] ~= nil or i == 1) then
+		                    t[i] = value
+		                    t[key] = nil
+		                    break
+		                end
+		            end
+		        end
+		    end
 		end
 
 		---@param t table
 		---@return integer count
 		function _table.count(t)
 		    local count = 0
-
 		    for _, _ in next, t, nil do
 		        count = count + 1
 		    end
-
 		    return count
 		end
 
@@ -641,11 +551,9 @@ __bundler__.__files__["tools.utils"] = function()
 		---@return table
 		function _table.invert(t)
 		    local inverted = {}
-
 		    for key, value in pairs(t) do
 		        inverted[value] = key
 		    end
-
 		    return inverted
 		end
 
@@ -657,16 +565,12 @@ __bundler__.__files__["tools.utils"] = function()
 		function _table.map(t, func)
 		    ---@type any[]
 		    local result = {}
-
 		    for index, value in ipairs(t) do
 		        result[index] = func(value)
 		    end
-
 		    return result
 		end
 
-		-- Only makes this table readonly
-		-- **NOT** the child tables
 		---@generic T
 		---@param t T
 		---@return T
@@ -686,13 +590,11 @@ __bundler__.__files__["tools.utils"] = function()
 		---@return R[]
 		function _table.select(t, func)
 		    local copy = _table.copy(t)
-
 		    for key, value in pairs(copy) do
 		        if not func(key, value) then
 		            copy[key] = nil
 		        end
 		    end
-
 		    return copy
 		end
 
@@ -707,7 +609,6 @@ __bundler__.__files__["tools.utils"] = function()
 		            t[key] = nil
 		        end
 		    end
-
 		    return t
 		end
 
@@ -716,6 +617,7 @@ __bundler__.__files__["tools.utils"] = function()
 	end
 
 	__bundler__.__files__["src.utils.array"] = function()
+		-- caching globals for more performance
 		local table_insert = table.insert
 
 		---@generic T
@@ -733,13 +635,13 @@ __bundler__.__files__["tools.utils"] = function()
 		end
 
 		---@class Freemaker.utils.array
-		local _array = {}
+		local array = {}
 
 		---@generic T
 		---@param t T[]
 		---@param amount integer
 		---@return T[]
-		function _array.take_front(t, amount)
+		function array.take_front(t, amount)
 		    local length = #t
 		    if amount > length then
 		        amount = length
@@ -756,7 +658,7 @@ __bundler__.__files__["tools.utils"] = function()
 		---@param t T[]
 		---@param amount integer
 		---@return T[]
-		function _array.take_back(t, amount)
+		function array.take_back(t, amount)
 		    local length = #t
 		    local start = #t - amount + 1
 		    if start < 1 then
@@ -774,7 +676,7 @@ __bundler__.__files__["tools.utils"] = function()
 		---@param t T[]
 		---@param amount integer
 		---@return T[]
-		function _array.drop_front_implace(t, amount)
+		function array.drop_front_implace(t, amount)
 		    for i, value in ipairs(t) do
 		        if i <= amount then
 		            t[i] = nil
@@ -790,7 +692,7 @@ __bundler__.__files__["tools.utils"] = function()
 		---@param t T[]
 		---@param amount integer
 		---@return T[]
-		function _array.drop_back_implace(t, amount)
+		function array.drop_back_implace(t, amount)
 		    local length = #t
 		    local start = length - amount + 1
 
@@ -805,10 +707,10 @@ __bundler__.__files__["tools.utils"] = function()
 		---@param t T[]
 		---@param func fun(index: integer, value: T) : R
 		---@return R[]
-		function _array.select(t, func)
+		function array.select(t, func)
 		    local copy = {}
 		    for index, value in pairs(t) do
-		        table_insert(copy, func(index, value))
+		        copy[index] = func(index, value)
 		    end
 		    return copy
 		end
@@ -818,7 +720,7 @@ __bundler__.__files__["tools.utils"] = function()
 		---@param t T[]
 		---@param func fun(index: integer, value: T) : R
 		---@return R[]
-		function _array.select_implace(t, func)
+		function array.select_implace(t, func)
 		    for index, value in pairs(t) do
 		        local new_value = func(index, value)
 		        t[index] = nil
@@ -829,27 +731,7 @@ __bundler__.__files__["tools.utils"] = function()
 		    return t
 		end
 
-		--- removes all spaces between
-		---@param t any[]
-		function _array.clean(t)
-		    for key, value in pairs(t) do
-		        for i = key - 1, 1, -1 do
-		            if key == 1 then
-		                goto continue
-		            end
-
-		            if t[i] == nil and (t[i - 1] ~= nil or i == 1) then
-		                t[i] = value
-		                t[key] = nil
-		                break
-		            end
-
-		            ::continue::
-		        end
-		    end
-		end
-
-		return _array
+		return array
 
 	end
 
@@ -879,7 +761,20 @@ __bundler__.__files__["tools.utils"] = function()
 		    if value == nil then
 		        return default_value
 		    end
+		    return value
+		end
 
+		---@param value number
+		---@param min number
+		---@param max number
+		---@return number
+		function _value.clamp(value, min, max)
+		    if value < min then
+		        return min
+		    end
+		    if value > max then
+		        return max
+		    end
 		    return value
 		end
 
@@ -887,126 +782,18 @@ __bundler__.__files__["tools.utils"] = function()
 
 	end
 
-	__bundler__.__files__["src.utils.stopwatch"] = function()
-		local _number = __bundler__.__loadFile__("src.utils.number")
-
-		---@class Freemaker.utils.stopwatch
-		---@field private running boolean
-		---
-		---@field start_time number
-		---@field end_time number
-		---@field private elapesd_milliseconds integer
-		---
-		---@field private laps integer[]
-		---@field private laps_count integer
-		local _stopwatch = {}
-
-		---@return Freemaker.utils.stopwatch
-		function _stopwatch.new()
-		    return setmetatable({
-		        running = false,
-
-		        start_time = 0,
-		        end_time = 0,
-		        elapesd_milliseconds = 0,
-
-		        laps = {},
-		        laps_count = 0,
-		    }, { __index = _stopwatch })
-		end
-
-		---@return Freemaker.utils.stopwatch
-		function _stopwatch.start_new()
-		    local instance = _stopwatch.new()
-		    instance:start()
-		    return instance
-		end
-
-		function _stopwatch:start()
-		    if self.running then
-		        return
-		    end
-
-		    self.start_time = os.clock()
-		    self.running = true
-		end
-
-		function _stopwatch:stop()
-		    if not self.running then
-		        return
-		    end
-
-		    self.end_time = os.clock()
-		    local elapesd_time = self.end_time - self.start_time
-		    self.running = false
-
-		    self.elapesd_milliseconds = _number.round(elapesd_time * 1000)
-		end
-
-		---@return integer
-		function _stopwatch:get_elapesd_seconds()
-		    return _number.round(self.elapesd_milliseconds / 1000)
-		end
-
-		---@return integer
-		function _stopwatch:get_elapesd_milliseconds()
-		    return self.elapesd_milliseconds
-		end
-
-		---@return integer elapesd_milliseconds
-		function _stopwatch:lap()
-		    if not self.running then
-		        return 0
-		    end
-
-		    local lap_time = os.clock() * 1000
-		    local previous_lap = self.laps[self.laps_count] or self.start_time
-
-		    self.laps_count = self.laps_count + 1
-		    self.laps[self.laps_count] = lap_time
-		    local elapesd_time = lap_time - previous_lap
-
-		    return _number.round(elapesd_time)
-		end
-
-		---@return integer elapesd_milliseconds
-		function _stopwatch:avg_lap()
-		    if not self.running then
-		        return 0
-		    end
-
-		    self:lap()
-
-		    local sum = 0
-		    for _, lap_time in ipairs(self.laps) do
-		        sum = sum + lap_time
-		    end
-
-			return sum / self.laps_count
-		end
-
-		return _stopwatch
-
-	end
-
 	__bundler__.__files__["__main__"] = function()
 		---@class Freemaker.utils
-		---@field number Freemaker.utils.number
 		---@field string Freemaker.utils.string
 		---@field table Freemaker.utils.table
 		---@field array Freemaker.utils.array
 		---@field value Freemaker.utils.value
-		---
-		---@field stopwatch Freemaker.utils.stopwatch
 		local utils = {}
 
-		utils.number = __bundler__.__loadFile__("src.utils.number")
-		utils.string = __bundler__.__loadFile__("src.utils.string.init")
+		utils.string = __bundler__.__loadFile__("src.utils.string")
 		utils.table = __bundler__.__loadFile__("src.utils.table")
 		utils.array = __bundler__.__loadFile__("src.utils.array")
 		utils.value = __bundler__.__loadFile__("src.utils.value")
-
-		utils.stopwatch = __bundler__.__loadFile__("src.utils.stopwatch")
 
 		return utils
 
@@ -1972,18 +1759,22 @@ __bundler__.__files__["src.construction"] = function()
 	        setmetatable(obj, metatable)
 	    end
 
+	    local base_constructed = false
 	    if type_info.base then
 	        if type_info.base.has_constructor then
 	            function super(...)
 	                constructMembers()
 	                construction_handler.construct(type_info.base, obj, instance, metatable, ...)
+	                base_constructed = true
 	                return obj
 	            end
 	        else
 	            constructMembers()
 	            construction_handler.construct(type_info.base, obj, instance, metatable)
+				base_constructed = true
 	        end
 	    else
+			base_constructed = true
 	        constructMembers()
 	    end
 
@@ -1993,6 +1784,10 @@ __bundler__.__files__["src.construction"] = function()
 	        else
 	            type_info.meta_methods.__init(obj, ...)
 	        end
+	    end
+
+	    if not base_constructed then
+	        error("'" .. type_info.name ..  "' constructor did not invoke '" .. type_info.base.name .. "' (base) constructor")
 	    end
 
 	    instance.is_constructed = true

@@ -15,7 +15,7 @@ _segment_interface.get_id = class_system.is_interface
 
 ---@return integer
 function _segment_interface:get_length()
-    return self.m_content_length
+    return self.m_content_length or 0
 end
 
 ---@param update boolean | nil
@@ -31,6 +31,7 @@ end
 
 _segment_interface.requested_update = class_system.is_interface
 
+---@protected
 ---@param context lua-term.render_context
 ---@return lua-term.render_buffer update_buffer
 ---@return integer length
