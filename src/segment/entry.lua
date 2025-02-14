@@ -7,6 +7,7 @@ local table_insert = table.insert
 ---@field private m_line integer
 ---
 ---@field private m_showing_id boolean
+---@field private m_content_length integer
 ---
 ---@field private m_segment lua-term.segment.interface
 ---@overload fun(segment: lua-term.segment.interface) : lua-term.segment.entry
@@ -21,6 +22,7 @@ function _entry:__init(segment)
     self.m_line = 0
 
     self.m_showing_id = false
+    self.m_content_length = 0
 
     self.m_segment = segment
 end
@@ -72,7 +74,7 @@ end
 function _entry:render(context)
     local buffer, length = self.m_segment:render(context)
 
-    if self.m_showing_id then
+    if self.m_showing_id and self.m_content_length ~= length then
         length = length + 2
         self:add_id_to_buffer(buffer, length, context.width)
     end
@@ -95,6 +97,7 @@ function _entry:render(context)
         self.m_showing_id = context.show_id
     end
 
+    self.m_content_length = length
     return buffer, length
 end
 

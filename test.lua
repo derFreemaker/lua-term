@@ -10,7 +10,7 @@ package.path = "./?.lua;" .. package.path
 local term = require("src.init")
 
 local terminal = term.asci_terminal(io.stdout)
--- terminal:show_ids()
+terminal:show_ids()
 -- terminal:show_line_numbers()
 
 local handle, err_msg = io.popen("ping 1.1.1.1", "r")
