@@ -9,7 +9,7 @@ local state = {
 }
 
 ---@class lua-term.screen.line
----@field [integer] string
+---@field buffer string[]
 ---@field length integer
 
 ---@class lua-term.screen
@@ -49,7 +49,7 @@ end
 function _screen:get_or_create_line(line)
     local _line = self:get_line(line)
     if not _line then
-        _line = { length = 0 }
+        _line = { buffer = {}, length = 0 }
         self.m_screen[line] = _line
         self.m_changed[line] = true
 
@@ -135,7 +135,7 @@ function _screen:execute_ansi_escape_code(command)
         -- Erase in Line (CSI n K)
         local line = self:get_or_create_line(self.m_cursor_y)
         for x = self.m_cursor_x, line.length do
-            line[x] = nil
+            line.buffer[x] = nil
         end
         line.length = self.m_cursor_x
     else
@@ -154,8 +154,8 @@ function _screen:write(buffer)
 
         local line = self:get_or_create_line(self.m_cursor_y)
         for x = line.length + 1, self.m_cursor_x - 1 do
-            if not line[x] then
-                line[x] = " "
+            if not line.buffer[x] then
+                line.buffer[x] = " "
             end
         end
 
@@ -211,37 +211,11 @@ end
 
 ---@return string[]
 function _screen:to_lines()
-    local pos_y = 0
-    local str_arr = {}
-    for y, row in pairs(self.m_screen) do
-        while pos_y < y do
-            pos_y = pos_y + 1
-            if not str_arr[pos_y] then
-                str_arr[pos_y] = ""
-            end
-        end
-
-        local pos_x = 0
-        local line = {}
-        for x, char in pairs(row) do
-            if type(x) == "string" then
-                goto continue
-            end
-
-            while pos_x < x do
-                pos_x = pos_x + 1
-                if not line[pos_x] then
-                    line[pos_x] = " "
-                end
-            end
-
-            line[x] = char
-
-            ::continue::
-        end
-        str_arr[y] = table.concat(line)
+    local lines = {}
+    for y, line in ipairs(self.m_screen) do
+        lines[y] = table_concat(line.buffer)
     end
-    return str_arr
+    return lines
 end
 
 ---@return string
