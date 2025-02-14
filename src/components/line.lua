@@ -12,7 +12,11 @@ local _segment_parent = require("src.segment.parent")
 ---@field private m_requested_update boolean
 ---
 ---@field private m_parent lua-term.segment.parent
+---@overload fun(id: string, parent: lua-term.segment.single_line_parent) : lua-term.components.line
 local _line = {}
+
+---@alias lua-term.components.line.__init fun(id: string, parent: lua-term.segment.single_line_parent)
+---@alias lua-term.components.line.__con fun(id: string, parent: lua-term.segment.single_line_parent) : lua-term.components.line
 
 ---@deprecated
 ---@private

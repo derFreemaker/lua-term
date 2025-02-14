@@ -5,10 +5,10 @@
 ---@field loading lua-term.components.loading | lua-term.components.loading.__con
 ---@field throbber lua-term.components.throbber | lua-term.components.throbber.__con
 ---
--- ---@field line lua-term.components.line
+---@field line lua-term.components.line | lua-term.components.line.__con
 ---@field group lua-term.components.group | lua-term.components.group.__con
 ---
--- ---@field stream lua-term.components.stream
+---@field stream lua-term.components.stream | lua-term.components.stream.__con
 ---
 ---@field loop_with_end lua-term.components.loop_with_end
 local components = {
@@ -18,10 +18,10 @@ local components = {
     loading = require("src.components.loading"),
     throbber = require("src.components.throbber"),
 
-    -- line = require("src.components.line"),
+    line = require("src.components.line"),
     group = require("src.components.group"),
 
-    -- stream = require("src.components.stream"),
+    stream = require("src.components.stream"),
 
     loop_with_end = require("src.components.loop_with_end")
 }

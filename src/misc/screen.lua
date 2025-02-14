@@ -1,3 +1,5 @@
+local utils = require("misc.utils")
+
 local table_concat = table.concat
 
 ---@enum lua-term.screen.state
@@ -36,20 +38,31 @@ function _screen.new(read_char_func)
     }, { __index = _screen })
 end
 
----@private
+---@param line integer
+---@return lua-term.screen.line | nil
+function _screen:get_line(line)
+    return self.m_screen[line]
+end
+
 ---@param line integer
 ---@return lua-term.screen.line
-function _screen:get_line(line)
-    local _line = self.m_screen[line]
+function _screen:get_or_create_line(line)
+    local _line = self:get_line(line)
     if not _line then
         _line = { length = 0 }
         self.m_screen[line] = _line
+        self.m_changed[line] = true
+
+        if line > 1 then
+            self:get_or_create_line(line - 1)
+        end
     end
+
     return _line
 end
 
 function _screen:get_height()
-    return #self.m_screen
+    return utils.table.count(self.m_screen)
 end
 
 ---@return (string[]|nil)[]
@@ -62,6 +75,7 @@ function _screen:get_changed()
     ---@type table<integer, string>
     local buffer = {}
     for line in pairs(self.m_changed) do
+        ---@diagnostic disable-next-line: param-type-mismatch
         buffer[line] = table_concat(self:get_line(line))
     end
     return buffer
@@ -119,7 +133,7 @@ function _screen:execute_ansi_escape_code(command)
         end
     elseif command == "K" then
         -- Erase in Line (CSI n K)
-        local line = self:get_line(self.m_cursor_y)
+        local line = self:get_or_create_line(self.m_cursor_y)
         for x = self.m_cursor_x, line.length do
             line[x] = nil
         end
@@ -135,10 +149,10 @@ end
 ---@private
 ---@param buffer string
 function _screen:write(buffer)
-    for i = 1, #buffer do
+    for i = 1, buffer:len() do
         local char = buffer:sub(i, i)
 
-        local line = self:get_line(self.m_cursor_y)
+        local line = self:get_or_create_line(self.m_cursor_y)
         for x = line.length + 1, self.m_cursor_x - 1 do
             if not line[x] then
                 line[x] = " "
@@ -195,21 +209,25 @@ function _screen:process_char()
     return char
 end
 
----@return string
-function _screen:to_string()
+---@return string[]
+function _screen:to_lines()
     local pos_y = 0
-    local result = {}
+    local str_arr = {}
     for y, row in pairs(self.m_screen) do
         while pos_y < y do
             pos_y = pos_y + 1
-            if not result[pos_y] then
-                result[pos_y] = ""
+            if not str_arr[pos_y] then
+                str_arr[pos_y] = ""
             end
         end
 
         local pos_x = 0
         local line = {}
         for x, char in pairs(row) do
+            if type(x) == "string" then
+                goto continue
+            end
+
             while pos_x < x do
                 pos_x = pos_x + 1
                 if not line[pos_x] then
@@ -218,10 +236,17 @@ function _screen:to_string()
             end
 
             line[x] = char
+
+            ::continue::
         end
-        result[y] = table.concat(line)
+        str_arr[y] = table.concat(line)
     end
-    return table.concat(result, "\n")
+    return str_arr
+end
+
+---@return string
+function _screen:to_string()
+    return table_concat(self:to_lines(), "\n")
 end
 
 return _screen

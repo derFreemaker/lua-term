@@ -73,15 +73,8 @@ function _entry:render(context)
     local buffer, length = self.m_segment:render(context)
 
     if self.m_showing_id then
-        for i = length, 1, -1 do
-            buffer[i + 1] = buffer[i]
-            buffer[i] = nil
-        end
         length = length + 2
-
-        if context.position_changed then
-            self:add_id_to_buffer(buffer, length, context.width)
-        end
+        self:add_id_to_buffer(buffer, length, context.width)
     end
 
     if context.show_id ~= self.m_showing_id then
