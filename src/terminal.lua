@@ -1,159 +1,175 @@
-local cursor = require("src.cursor")
-local erase = require("src.erase")
+local utils = require("misc.utils")
 
 local pairs = pairs
-local math_abs = math.abs
 local string_rep = string.rep
-local io_type = io.type
 local table_insert = table.insert
 local table_remove = table.remove
 
-local entry_class = require("src.segment.entry")
+local _segment_parent = require("src.segment.parent")
+local _entry = require("src.segment.entry")
 local _text = require("src.components.text")
 
 ---@class lua-term.render_context
----@field show_ids boolean
-
----@class lua-term.terminal : lua-term.segment_parent
----@field show_ids boolean | nil
----@field show_lines boolean | nil
+---@field show_id boolean
 ---
----@field private m_stream file*
+---@field width integer
 ---
----@field private m_segments lua-term.segment_entry[]
+---@field position_changed boolean
+
+---@alias lua-term.render_buffer table<integer, string | lua-term.render_buffer>
+
+---@class lua-term.terminal.callbacks.create
+---@field write fun(...: string)
+---@field write_line fun(...: string) | nil
+---@field flush fun() | nil
 ---
----@field private m_org_print function
----@field private m_cursor_pos integer
-local terminal = {}
+---@field erase_line fun()
+---@field erase_till_end fun()
+---
+---@field go_to_line fun(line: integer)
 
----@param stream file*
----@return lua-term.terminal
-function terminal.new(stream)
-    if io_type(stream) ~= "file" then
-        error("stream is not valid")
-    end
+---@class lua-term.terminal.callbacks
+---@field write fun(...: string)
+---@field write_line fun(...: string)
+---@field flush fun()
+---
+---@field erase_line fun()
+---@field erase_till_end fun()
+---
+---@field go_to_line fun(line: integer)
 
-    stream:write("\27[?7l")
-    return setmetatable({
-        m_stream = stream,
-        m_segments = {},
-        m_cursor_pos = 1,
-    }, { __index = terminal })
+---@class lua-term.terminal : object, lua-term.segment.parent
+---
+---@field package m_show_ids boolean
+---@field package m_show_line_numbers boolean
+---@field package m_callbacks lua-term.terminal.callbacks
+---@overload fun(callbacks: lua-term.terminal.callbacks.create) : lua-term.terminal
+local _terminal = {}
+
+---@alias lua-term.terminal.__init fun(callbacks: lua-term.terminal.callbacks.create)
+---@alias lua-term.terminal.__con fun(callbacks: lua-term.terminal.callbacks.create) : lua-term.terminal
+
+---@deprecated
+---@private
+---@param super lua-term.segment.parent.__init
+---@param callbacks lua-term.terminal.callbacks.create
+function _terminal:__init(super, callbacks)
+    super()
+
+    self.m_callbacks = {
+        write = callbacks.write,
+        write_line = callbacks.write_line or function(...)
+            self.m_callbacks.write(..., "\n")
+        end,
+        flush = callbacks.flush or function() end,
+
+        erase_line = callbacks.erase_line,
+        erase_till_end = callbacks.erase_till_end,
+
+        go_to_line = callbacks.go_to_line
+    }
 end
 
-local stdout_terminal
----@return lua-term.terminal
-function terminal.stdout()
-    if stdout_terminal then
-        return stdout_terminal
-    end
-
-    stdout_terminal = terminal.new(io.stdout)
-    return stdout_terminal
+---@param value boolean | nil
+function _terminal:show_ids(value)
+    self.m_show_ids = value or true
 end
 
-function terminal:close()
-    self.m_stream:write("\27[?7h")
+---@param value boolean | nil
+function _terminal:show_line_numbers(value)
+    self.m_show_line_numbers = value or true
 end
 
 ---@param ... any
----@return lua-term.segment
-function terminal:print(...)
-    return _text.print(self, ...)
+---@return lua-term.components.text
+function _terminal:print(...)
+    return _text.static__print(self, ...)
 end
 
-function terminal:add_segment(id, segment)
-    local entry = entry_class.new(id, segment)
-    table_insert(self.m_segments, entry)
+function _terminal:add_child(segment)
+    local entry = _entry(segment)
+    table_insert(self.m_childs, entry)
 end
 
-function terminal:remove_child(child)
-    for index, entry in ipairs(self.m_segments) do
-        if entry:has_segment(child) then
-            table_remove(self.m_segments, index)
+function _terminal:remove_child(child)
+    for index, segment in ipairs(self.m_childs) do
+        if segment:wraps_segment(child) then
+            table_remove(self.m_childs, index)
+            break
         end
     end
 end
 
-function terminal:clear()
-    self.m_segments = {}
-    self:update()
+function _terminal:clear()
+    self.m_childs = {}
+    self.m_callbacks.go_to_line(1)
+    self.m_callbacks.erase_till_end()
+    self.m_callbacks.flush()
 end
 
----@private
----@param line integer
-function terminal:jump_to_line(line)
-    local jump_lines = line - self.m_cursor_pos
-    if jump_lines == 0 then
-        return
-    end
+---@param self lua-term.terminal
+---@param buffer table<integer, string | string[]>
+---@param line_start integer
+local function write_buffer(self, buffer, line_start)
+    for line, content in pairs(buffer) do
+        line = line_start + line
 
-    if jump_lines > 0 then
-        self.m_stream:write(cursor.go_down(jump_lines))
-    else
-        self.m_stream:write(cursor.go_up(math_abs(jump_lines)))
-    end
-    self.m_cursor_pos = line
-end
-
-function terminal:update()
-    local line_buffer_pos = 1
-    ---@type table<integer, string>
-    local line_buffer = {}
-
-    for _, segment in ipairs(self.m_segments) do
-        if not self.show_ids and not segment:requested_update() then
-            if segment.line ~= line_buffer_pos then
-                for index, line in ipairs(segment.lines) do
-                    line_buffer[line_buffer_pos + index - 1] = line
-                end
-
-                segment.line = line_buffer_pos
-            end
-        else
-            local context = {
-                show_ids = self.show_ids
-            }
-            local update_lines = segment:pre_render(context)
-
-            if segment.line ~= line_buffer_pos then
-                for index, line in ipairs(segment.lines) do
-                    line_buffer[line_buffer_pos + index - 1] = line
-                end
-            else
-                for index, line in pairs(update_lines) do
-                    line_buffer[line_buffer_pos + index - 1] = line
-                end
-            end
-
-            segment.line = line_buffer_pos
+        if type(content) == "table" then
+            write_buffer(self, content, line - 1)
+            goto continue
         end
 
-        line_buffer_pos = line_buffer_pos + segment.lines_count
-    end
+        self.m_callbacks.go_to_line(line)
+        self.m_callbacks.erase_line()
 
-    for line, content in pairs(line_buffer) do
-        self:jump_to_line(line)
-
-        self.m_stream:write(erase.line())
-        if self.show_lines then
+        if self.m_show_line_numbers then
             local line_str = tostring(line)
             local space = 3 - line_str:len()
-            self.m_stream:write(line_str, string_rep(" ", space), "|")
+            self.m_callbacks.write(line_str, string_rep(" ", space), "|")
         end
-        self.m_stream:write(content, "\n")
-        self.m_cursor_pos = self.m_cursor_pos + 1
-    end
 
-    if #self.m_segments > 0 then
-        local last_segment = self.m_segments[#self.m_segments]
-        self:jump_to_line(last_segment.line + last_segment.lines_count)
-    else
-        self:jump_to_line(1)
-    end
+        self.m_callbacks.write_line(content)
 
-    self.m_stream:write(erase.till_end())
-    self.m_stream:flush()
+        ::continue::
+    end
 end
 
-return terminal
+function _terminal:update()
+    local buffer = {}
+    local buffer_pos = 1
+
+    for _, segment in ipairs(self.m_childs) do
+        ---@type lua-term.render_context
+        local context = {
+            show_id = self.m_show_ids,
+            width = 80,
+            position_changed = segment:get_line() ~= buffer_pos
+        }
+
+        local seg_buffer, seg_length = segment:render(context)
+        buffer[buffer_pos] = seg_buffer
+
+        segment:set_line(buffer_pos)
+        buffer_pos = buffer_pos + seg_length
+    end
+
+    write_buffer(self, buffer, 0)
+
+    if #self.m_childs > 0 then
+        local last_segment = self.m_childs[#self.m_childs]
+        local line = last_segment:get_line()
+        local length = last_segment:get_length()
+        self.m_callbacks.go_to_line(line + length)
+    else
+        self.m_callbacks.go_to_line(1)
+    end
+
+    self.m_callbacks.erase_till_end()
+    self.m_callbacks.flush()
+end
+
+return class("lua-term.terminal", _terminal, {
+    inherit = {
+        _segment_parent
+    }
+})

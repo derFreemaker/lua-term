@@ -1,14 +1,15 @@
 local utils = require("misc.utils")
-local table_insert = table.insert
-local table_concat = table.concat
 
-local screen_class = require("src.misc.screen")
+local io_type = io.type
+
+local _segment = require("src.segment.init")
+local _screen = require("src.misc.screen")
 
 ---@class lua-term.components.stream.config
----@field before string | ansicolors.color | nil
----@field after string | ansicolors.color | nil
+---@field before_each_line string | ansicolors.color | nil
+---@field after_each_line string | ansicolors.color | nil
 
----@class lua-term.components.stream : lua-term.segment_interface
+---@class lua-term.components.stream : lua-term.segment.interface, object
 ---@field config lua-term.components.stream.config
 ---
 ---@field private m_stream file*
@@ -16,78 +17,72 @@ local screen_class = require("src.misc.screen")
 ---
 ---@field private m_screen lua-term.screen
 ---
----@field private m_parent lua-term.segment_parent
----@field private m_requested_update boolean
-local stream_class = {}
+---@field private m_segment lua-term.segment
+---@overload fun(id: string, parent: lua-term.segment.parent, stream: file*, config: lua-term.components.stream.config | nil) : lua-term.components.stream
+local _stream = {}
 
+---@alias lua-term.components.stream.__init fun(id: string, parent: lua-term.segment.parent, stream: file*, config: lua-term.components.stream.config | nil)
+---@alias lua-term.components.stream.__con fun(id: string, parent: lua-term.segment.parent, stream: file*, config: lua-term.components.stream.config | nil) : lua-term.components.stream
+
+---@deprecated
+---@private
 ---@param id string
----@param parent lua-term.segment_parent
+---@param parent lua-term.segment.parent
 ---@param stream file*
 ---@param config lua-term.components.stream.config | nil
----@return lua-term.components.stream
-function stream_class.new(id, parent, stream, config)
-    local instance = setmetatable({
-        config = config or {},
+function _stream:__init(id, parent, stream, config)
+    self.config = config or {}
 
-        m_stream = stream,
-        m_closed = false,
-
-        m_screen = screen_class.new(function()
-            return stream:read(1)
-        end),
-
-        m_parent = parent,
-        m_requested_update = true,
-    }, { __index = stream_class })
-    parent:add_segment(id, instance)
-
-    return instance
-end
-
-function stream_class:remove(update)
-    self.m_parent:remove_child(self)
-
-    if utils.value.default(update, true) then
-        self.m_parent:update()
-    end
-end
-
----@param context lua-term.render_context
----@return table<integer, string> update_buffer
----@return integer lines
-function stream_class:render(context)
-    local buffer = self.m_screen:get_changed()
-    local height = self.m_screen:get_height()
-    self.m_screen:clear_changed()
-
-    for line, content in pairs(buffer) do
-        buffer[line] = ("%s%s%s"):format(tostring(self.config.before or ""), content, tostring(self.config.after or ""))
+    if io_type(stream) ~= "file" then
+        error("stream not valid")
     end
 
-    return buffer, height
+    self.m_stream = stream
+    self.m_closed = false
+
+    self.m_screen = _screen.new(function()
+        return stream:read(1)
+    end)
+
+    self.m_segment = _segment(id, parent, function(_)
+        local buffer = self.m_screen:get_changed()
+        local length = #buffer
+
+        for line, content in pairs(buffer) do
+            buffer[line] = ("%s%s%s"):format(tostring(self.config.before_each_line or ""), content,
+                tostring(self.config.after_each_line or ""))
+        end
+
+        return buffer, length
+    end)
 end
 
-function stream_class:requested_update()
-    return self.m_requested_update
+function _stream:remove(update)
+    self.m_segment:remove(update)
+end
+
+function _stream:requested_update()
+    return self.m_segment:requested_update()
 end
 
 ---@private
-function stream_class:read(update)
+---@param update boolean | nil
+function _stream:read(update)
     local char = self.m_screen:process_char()
     if not char then
         self.m_closed = true
         return
     end
 
-    if utils.value.default(update, true) then
-        self:update()
+    if update then
+        self.m_segment:changed(true)
     end
 
     return char
 end
 
 ---@param update boolean | nil
-function stream_class:read_line(update)
+function _stream:read_line(update)
     while true do
         local char = self:read(false)
         if not char then
@@ -99,21 +94,16 @@ function stream_class:read_line(update)
         end
     end
 
-    if utils.value.default(update, true) then
-        self:update()
+    if update then
+        self.m_segment:changed(true)
     end
 end
 
 ---@param update boolean | nil
-function stream_class:read_all(update)
+function _stream:read_all(update)
     while not self.m_closed do
         self:read(update)
     end
 end
 
-function stream_class:update()
-    self.m_requested_update = true
-    self.m_parent:update()
-end
-
-return stream_class
+return class("lua-term.components.screen", _stream)

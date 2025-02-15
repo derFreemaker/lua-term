@@ -1,3 +1,5 @@
+local utils = require("misc.utils")
+
 local table_concat = table.concat
 
 ---@enum lua-term.screen.state
@@ -7,7 +9,7 @@ local state = {
 }
 
 ---@class lua-term.screen.line
----@field [integer] string
+---@field buffer string[]
 ---@field length integer
 
 ---@class lua-term.screen
@@ -20,10 +22,10 @@ local state = {
 ---
 ---@field private m_state lua-term.screen.state
 ---@field private m_buffer string | nil
-local screen_class = {}
+local _screen = {}
 
 ---@param read_char_func fun() : string | nil
-function screen_class.new(read_char_func)
+function _screen.new(read_char_func)
     return setmetatable({
         m_read_char_func = read_char_func,
 
@@ -33,48 +35,60 @@ function screen_class.new(read_char_func)
         m_changed = {},
 
         m_state = state.Normal
-    }, { __index = screen_class })
+    }, { __index = _screen })
 end
 
----@private
+---@param line integer
+---@return lua-term.screen.line | nil
+function _screen:get_line(line)
+    return self.m_screen[line]
+end
+
 ---@param line integer
 ---@return lua-term.screen.line
-function screen_class:get_line(line)
-    local _line = self.m_screen[line]
+function _screen:get_or_create_line(line)
+    local _line = self:get_line(line)
     if not _line then
-        _line = { length = 0 }
+        _line = { buffer = {}, length = 0 }
         self.m_screen[line] = _line
+        self.m_changed[line] = true
+
+        if line > 1 then
+            self:get_or_create_line(line - 1)
+        end
     end
+
     return _line
 end
 
-function screen_class:get_height()
-    return #self.m_screen
+function _screen:get_height()
+    return utils.table.count(self.m_screen)
 end
 
 ---@return (string[]|nil)[]
-function screen_class:get_screen()
+function _screen:get_screen()
     return self.m_screen
 end
 
 ---@return table<integer, string>
-function screen_class:get_changed()
+function _screen:get_changed()
     ---@type table<integer, string>
     local buffer = {}
     for line in pairs(self.m_changed) do
+        ---@diagnostic disable-next-line: param-type-mismatch
         buffer[line] = table_concat(self:get_line(line))
     end
     return buffer
 end
 
-function screen_class:clear_changed()
+function _screen:clear_changed()
     self.m_changed = {}
 end
 
 ---@private
 ---@param dx integer
 ---@param dy integer
-function screen_class:move_cursor(dx, dy)
+function _screen:move_cursor(dx, dy)
     self.m_cursor_x = math.max(1, self.m_cursor_x + dx)
     self.m_cursor_y = math.max(1, self.m_cursor_y + dy)
 end
@@ -92,7 +106,7 @@ end
 
 ---@private
 ---@param command string
-function screen_class:execute_ansi_escape_code(command)
+function _screen:execute_ansi_escape_code(command)
     local params = parse_ansi_escape_code_params(self.m_buffer:sub(3, -1)) -- Extract parameters
 
     -- Process the command
@@ -119,9 +133,9 @@ function screen_class:execute_ansi_escape_code(command)
         end
     elseif command == "K" then
         -- Erase in Line (CSI n K)
-        local line = self:get_line(self.m_cursor_y)
+        local line = self:get_or_create_line(self.m_cursor_y)
         for x = self.m_cursor_x, line.length do
-            line[x] = nil
+            line.buffer[x] = nil
         end
         line.length = self.m_cursor_x
     else
@@ -134,14 +148,14 @@ end
 
 ---@private
 ---@param buffer string
-function screen_class:write(buffer)
-    for i = 1, #buffer do
+function _screen:write(buffer)
+    for i = 1, buffer:len() do
         local char = buffer:sub(i, i)
 
-        local line = self:get_line(self.m_cursor_y)
+        local line = self:get_or_create_line(self.m_cursor_y)
         for x = line.length + 1, self.m_cursor_x - 1 do
-            if not line[x] then
-                line[x] = " "
+            if not line.buffer[x] then
+                line.buffer[x] = " "
             end
         end
 
@@ -156,7 +170,7 @@ function screen_class:write(buffer)
 end
 
 ---@return string | nil char
-function screen_class:process_char()
+function _screen:process_char()
     local char = self.m_read_char_func()
     if not char then
         return nil
@@ -195,33 +209,18 @@ function screen_class:process_char()
     return char
 end
 
----@return string
-function screen_class:to_string()
-    local pos_y = 0
-    local result = {}
-    for y, row in pairs(self.m_screen) do
-        while pos_y < y do
-            pos_y = pos_y + 1
-            if not result[pos_y] then
-                result[pos_y] = ""
-            end
-        end
-
-        local pos_x = 0
-        local line = {}
-        for x, char in pairs(row) do
-            while pos_x < x do
-                pos_x = pos_x + 1
-                if not line[pos_x] then
-                    line[pos_x] = " "
-                end
-            end
-
-            line[x] = char
-        end
-        result[y] = table.concat(line)
+---@return string[]
+function _screen:to_lines()
+    local lines = {}
+    for y, line in ipairs(self.m_screen) do
+        lines[y] = table_concat(line.buffer)
     end
-    return table.concat(result, "\n")
+    return lines
 end
 
-return screen_class
+---@return string
+function _screen:to_string()
+    return table_concat(self:to_lines(), "\n")
+end
+
+return _screen

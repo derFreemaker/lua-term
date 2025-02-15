@@ -2,88 +2,101 @@ local utils = require("misc.utils")
 local string_rep = string.rep
 
 local colors = require("third-party.ansicolors")
-local segment_class = require("src.segment.init")
+local _segment = require("src.segment.init")
+local _segment_interface = require("src.segment.interface")
 
 ---@class lua-term.components.loading.config.create
 ---@field length integer | nil (default: 40)
----@field state_percent integer | nil in percent (default: 0)
 ---
 ---@field color_bg ansicolors.color | nil (default: black)
 ---@field color_fg ansicolors.color | nil (default: magenta)
+---
+---@field count integer
 
 ---@class lua-term.components.loading.config
 ---@field length integer
 ---
 ---@field color_bg ansicolors.color
 ---@field color_fg ansicolors.color
+---
+---@field count integer
 
----@class lua-term.components.loading
+---@class lua-term.components.loading : lua-term.segment.single_line_interface, object
 ---@field id string
----@field state_percent integer
+---
+---@field state integer
 ---
 ---@field config lua-term.components.loading.config
 ---
 ---@field private m_segment lua-term.segment
-local loading = {}
+---@overload fun(id: string, parent: lua-term.segment.single_line_parent, config: lua-term.components.loading.config.create) : lua-term.components.loading
+local _loading = {}
 
+---@alias lua-term.components.loading.__con fun(id: string, parent: lua-term.segment.single_line_parent, config: lua-term.components.loading.config.create) : lua-term.components.loading
+
+---@deprecated
+---@private
 ---@param id string
----@param parent lua-term.segment_parent
----@param config lua-term.components.loading.config.create | nil
----@return lua-term.components.loading
-function loading.new(id, parent, config)
+---@param parent lua-term.segment.single_line_parent
+---@param config lua-term.components.loading.config.create
+function _loading:__init(id, parent, config)
     config = config or {}
-    config.color_bg = config.color_bg or colors.onblack
-    config.color_fg = config.color_fg or colors.onmagenta
-    config.length = config.length or 40
+    config.length = utils.value.default(config.length, 40)
+    config.color_bg = utils.value.default(config.color_bg, colors.onblack)
+    config.color_fg = utils.value.default(config.color_fg, colors.onmagenta)
 
-    ---@type lua-term.components.loading
-    local instance = setmetatable({
-        id = id,
-        state_percent = utils.value.clamp(config.state_percent or 0, 0, 100),
+    self.state = 0
+    ---@diagnostic disable-next-line: assign-type-mismatch
+    self.config = config
 
-        config = config,
-    }, { __index = loading })
-    instance.m_segment = segment_class.new(id, function()
-        return instance:render()
-    end, parent)
+    self.m_segment = _segment(id, parent, function(_)
+        local mark_tiles = math.floor(self.config.length * self.state / self.config.count)
+        if mark_tiles == 0 then
+            return { self.config.color_bg(string_rep(" ", self.config.length)) }, 1
+        end
 
-    config.state_percent = nil
-
-    return instance
+        return {
+            self.config.color_fg(string_rep(" ", mark_tiles))
+            .. self.config.color_bg(string_rep(" ", self.config.length - mark_tiles))
+        }, 1
+    end)
 end
 
----@return string
-function loading:render()
-    local mark_tiles = math.floor(self.config.length * self.state_percent / 100)
-    if mark_tiles == 0 then
-        return self.config.color_bg(string_rep(" ", self.config.length))
-    end
-
-    return self.config.color_fg(string_rep(" ", mark_tiles)) ..
-    self.config.color_bg(string_rep(" ", self.config.length - mark_tiles))
-end
-
----@param state_percent integer | nil
----@param update boolean | nil
-function loading:changed(state_percent, update)
-    if state_percent then
-        self.state_percent = utils.value.clamp(state_percent, 0, 100)
+function _loading:changed(state, update)
+    if state then
+        self.state = utils.number.clamp(state, 0, self.config.count)
     end
 
     self.m_segment:changed(utils.value.default(update, true))
 end
 
----@param state_percent integer
+---@param state integer
 ---@param update boolean | nil
-function loading:changed_relativ(state_percent, update)
-    self.state_percent = utils.value.clamp(self.state_percent + state_percent, 0, 100)
+function _loading:changed_relativ(state, update)
+    self:changed(self.state + state, update)
+end
 
-    self.m_segment:changed(utils.value.default(update, true))
+-- lua-term.segment.single_line_interface
+
+function _loading:get_id()
+    return self.m_segment:get_id()
 end
 
 ---@param update boolean | nil
-function loading:remove(update)
+function _loading:remove(update)
     self.m_segment:remove(update)
 end
 
-return loading
+function _loading:requested_update()
+    self.m_segment:requested_update()
+end
+
+function _loading:render_impl(context)
+    return self.m_segment:render_impl(context)
+end
+
+return class("lua-term.components.loading", _loading, {
+    inherit = {
+        _segment_interface
+    }
+})
