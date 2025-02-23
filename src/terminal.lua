@@ -56,6 +56,9 @@ local _terminal = {}
 function _terminal:__init(super, callbacks)
     super()
 
+    self.m_show_ids = false
+	self.m_show_line_numbers = false
+
     self.m_callbacks = {
         write = callbacks.write,
         write_line = callbacks.write_line or function(...)
