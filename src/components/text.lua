@@ -40,7 +40,9 @@ function _text.static__print(parent, ...)
     local text = table_concat(items, "\t")
 
     ---@diagnostic disable-next-line: param-type-mismatch
-    return _text("<print>", parent, text)
+    local component = _text("<print>", parent, text)
+    parent:update()
+    return component
 end
 
 ---@param parent lua-term.segment.single_line_parent
